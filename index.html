@@ -1,0 +1,2155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NeuroScan AI — Brain Tumor Detection</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+
+<style>
+/* ════════════════════════════════════════════
+   DESIGN SYSTEM
+════════════════════════════════════════════ */
+:root {
+  --bg:      #020810;
+  --bg2:     #060f1c;
+  --bg3:     #0a1828;
+  --bg4:     #0f2236;
+  --b1:      rgba(0,210,255,0.08);
+  --b2:      rgba(0,210,255,0.16);
+  --b3:      rgba(0,210,255,0.28);
+  --cyan:    #00d4ff;
+  --cyan2:   #00a8cc;
+  --green:   #00ff9d;
+  --red:     #ff3557;
+  --amber:   #ffb520;
+  --violet:  #c084fc;
+  --t1:      #f0f8ff;
+  --t2:      #b8d8ec;
+  --t3:      #6a9cb8;
+  --t4:      #2d5570;
+  --font-d:  'Bebas Neue', sans-serif;
+  --font-m:  'IBM Plex Mono', monospace;
+  --font-s:  'DM Sans', sans-serif;
+  --r:       0px;
+  --ease:    cubic-bezier(0.16,1,0.3,1);
+}
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; font-size:15px; }
+
+body {
+  background: var(--bg);
+  color: var(--t2);
+  font-family: var(--font-s);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Fine grain overlay */
+body::before {
+  content:'';
+  position:fixed; inset:0; z-index:9998; pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  opacity:0.5;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width:5px; }
+::-webkit-scrollbar-track { background:var(--bg); }
+::-webkit-scrollbar-thumb { background:var(--b3); }
+::-webkit-scrollbar-thumb:hover { background:var(--cyan2); }
+
+/* ════════════════════════════════════════════
+   CANVAS BACKGROUND
+════════════════════════════════════════════ */
+#neural-canvas {
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  opacity:0.6;
+}
+
+/* ════════════════════════════════════════════
+   NAVIGATION
+════════════════════════════════════════════ */
+#nav {
+  position:fixed; top:0; left:0; right:0; z-index:1000;
+  height:60px; padding:0 40px;
+  display:flex; align-items:center; justify-content:space-between;
+  background:rgba(2,8,16,0.88);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--b1);
+  transition:border-color 0.3s;
+}
+#nav.scrolled { border-color:var(--b2); }
+
+.nav-logo {
+  display:flex; align-items:center; gap:10px;
+  cursor:pointer; text-decoration:none; flex-shrink:0;
+}
+.nav-orb {
+  width:30px; height:30px; border-radius:50%;
+  border:1.5px solid var(--cyan);
+  display:flex; align-items:center; justify-content:center;
+  position:relative;
+}
+.nav-orb::before {
+  content:''; width:12px; height:12px; border-radius:50%;
+  background:radial-gradient(circle, var(--cyan) 0%, transparent 70%);
+  animation:orbPulse 2.4s ease-in-out infinite;
+}
+@keyframes orbPulse { 0%,100%{opacity:0.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.3)} }
+
+.nav-name {
+  font-family:var(--font-d); font-size:20px; letter-spacing:0.1em; color:var(--t1);
+}
+.nav-name em { font-style:normal; color:var(--cyan); }
+
+.nav-center {
+  display:flex; gap:2px;
+}
+@media(max-width:700px){ .nav-center{display:none} }
+
+.nav-btn {
+  font-family:var(--font-m); font-size:10px; letter-spacing:0.16em;
+  text-transform:uppercase; color:var(--t3); background:none; border:none;
+  padding:8px 16px; cursor:pointer; transition:color 0.2s;
+  position:relative;
+}
+.nav-btn::after {
+  content:''; position:absolute; bottom:4px; left:50%; transform:translateX(-50%);
+  width:0; height:1px; background:var(--cyan); transition:width 0.3s;
+}
+.nav-btn:hover { color:var(--t1); }
+.nav-btn:hover::after, .nav-btn.on::after { width:60%; }
+.nav-btn.on { color:var(--cyan); }
+
+.nav-cta {
+  font-family:var(--font-m); font-size:10px; letter-spacing:0.16em;
+  text-transform:uppercase; color:var(--bg); background:var(--cyan);
+  border:none; padding:9px 20px; cursor:pointer; transition:all 0.2s;
+  font-weight:600; flex-shrink:0;
+}
+.nav-cta:hover { background:#33dcff; transform:translateY(-1px); box-shadow:0 4px 20px rgba(0,212,255,0.3); }
+
+/* ════════════════════════════════════════════
+   PAGE SYSTEM
+════════════════════════════════════════════ */
+.page {
+  display:none; position:relative; z-index:1;
+  padding-top:60px; min-height:100vh;
+  animation:pgIn 0.45s var(--ease) both;
+}
+.page.on { display:block; }
+@keyframes pgIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+
+/* ════════════════════════════════════════════
+   SHARED COMPONENTS
+════════════════════════════════════════════ */
+.tag {
+  font-family:var(--font-m); font-size:9px; letter-spacing:0.24em;
+  text-transform:uppercase; color:var(--cyan);
+  display:inline-flex; align-items:center; gap:10px;
+}
+.tag::before { content:''; display:block; width:20px; height:1px; background:var(--cyan); flex-shrink:0; }
+
+.section-head {
+  font-family:var(--font-d); font-size:clamp(38px,5vw,64px);
+  letter-spacing:0.03em; color:var(--t1); line-height:0.95;
+}
+
+.card {
+  background:var(--bg2); border:1px solid var(--b1);
+  transition:border-color 0.25s, background 0.25s;
+}
+.card:hover { border-color:var(--b2); background:var(--bg3); }
+
+.glow-line {
+  position:absolute; top:0; left:0; right:0; height:1px;
+  background:linear-gradient(90deg, transparent, var(--cyan), transparent);
+  opacity:0.4;
+}
+
+/* Scroll reveal */
+.reveal { opacity:0; transform:translateY(28px); transition:opacity 0.7s var(--ease), transform 0.7s var(--ease); }
+.reveal.shown { opacity:1; transform:translateY(0); }
+
+/* Buttons */
+.btn-p {
+  font-family:var(--font-m); font-size:11px; letter-spacing:0.16em;
+  text-transform:uppercase; background:var(--cyan); color:var(--bg);
+  border:none; padding:14px 32px; cursor:pointer; font-weight:600;
+  transition:all 0.2s; position:relative; overflow:hidden;
+}
+.btn-p::before {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+  transform:translateX(-100%); transition:transform 0.5s;
+}
+.btn-p:hover { background:#22dbff; transform:translateY(-2px); box-shadow:0 8px 28px rgba(0,212,255,0.32); }
+.btn-p:hover::before { transform:translateX(100%); }
+.btn-p:disabled { opacity:0.45; cursor:not-allowed; transform:none; box-shadow:none; }
+
+.btn-s {
+  font-family:var(--font-m); font-size:11px; letter-spacing:0.14em;
+  text-transform:uppercase; background:transparent; color:var(--t2);
+  border:1px solid var(--b2); padding:14px 32px; cursor:pointer;
+  transition:all 0.2s;
+}
+.btn-s:hover { border-color:var(--cyan); color:var(--cyan); }
+
+.btn-g {
+  font-family:var(--font-m); font-size:10px; letter-spacing:0.14em;
+  text-transform:uppercase; background:transparent; color:var(--t3);
+  border:1px solid var(--b1); padding:10px 18px; cursor:pointer;
+  transition:all 0.2s; width:100%;
+}
+.btn-g:hover { border-color:var(--t3); color:var(--t2); }
+
+/* Separator */
+.sep { border:none; border-top:1px solid var(--b1); margin:0; }
+
+/* ════════════════════════════════════════════
+   PAGE: HOME
+════════════════════════════════════════════ */
+
+/* Hero */
+.hero {
+  min-height:calc(100vh - 60px);
+  display:grid; grid-template-columns:1fr 420px;
+  gap:0; align-items:center;
+  padding:60px 60px 60px 60px;
+  position:relative; overflow:hidden;
+}
+@media(max-width:1100px){ .hero{grid-template-columns:1fr; padding:60px 32px;} }
+
+.hero-left { position:relative; z-index:2; }
+
+.hero-eyebrow {
+  display:inline-flex; align-items:center; gap:10px;
+  font-family:var(--font-m); font-size:9px; letter-spacing:0.22em;
+  text-transform:uppercase; color:var(--cyan);
+  border:1px solid var(--b2); padding:7px 14px; margin-bottom:32px;
+  animation:fadeUp 0.7s ease both;
+}
+.hero-dot {
+  width:6px; height:6px; border-radius:50%; background:var(--cyan);
+  animation:orbPulse 1.5s ease-in-out infinite;
+}
+
+.hero-h1 {
+  font-family:var(--font-d); font-size:clamp(68px,10vw,136px);
+  line-height:0.9; letter-spacing:0.02em; color:var(--t1);
+  animation:fadeUp 0.7s 0.08s ease both;
+}
+.hero-h1 .c1 { color:var(--cyan); }
+.hero-h1 .c2 {
+  -webkit-text-stroke:1.5px var(--t1); color:transparent;
+  transition:color 0.3s;
+}
+.hero-h1:hover .c2 { color:var(--t1); }
+
+.hero-p {
+  font-size:15px; line-height:1.8; color:var(--t3); max-width:480px;
+  margin-top:24px; animation:fadeUp 0.7s 0.16s ease both;
+}
+
+.hero-actions {
+  display:flex; gap:14px; flex-wrap:wrap; margin-top:36px;
+  animation:fadeUp 0.7s 0.24s ease both;
+}
+
+.hero-disclaimer {
+  display:inline-flex; align-items:center; gap:8px; margin-top:24px;
+  font-family:var(--font-m); font-size:9px; letter-spacing:0.12em;
+  color:var(--amber); background:rgba(255,181,32,0.06);
+  border:1px solid rgba(255,181,32,0.2); padding:7px 14px;
+  animation:fadeUp 0.7s 0.32s ease both;
+}
+
+/* Brain SVG visualization */
+.hero-right {
+  display:flex; align-items:center; justify-content:center;
+  position:relative; padding:40px;
+}
+@media(max-width:1100px){ .hero-right{display:none;} }
+
+.brain-wrap {
+  position:relative; width:340px; height:340px;
+  animation:brainFloat 7s ease-in-out infinite;
+}
+@keyframes brainFloat {
+  0%,100%{transform:translateY(0) rotate(-1deg)}
+  50%{transform:translateY(-18px) rotate(1deg)}
+}
+
+.brain-svg { width:100%; height:100%; }
+
+/* Scanning ring around brain */
+.brain-ring {
+  position:absolute; inset:-20px; border-radius:50%;
+  border:1px solid rgba(0,212,255,0.15);
+  animation:ringRotate 20s linear infinite;
+}
+.brain-ring::before {
+  content:''; position:absolute; top:-3px; left:50%; transform:translateX(-50%);
+  width:6px; height:6px; border-radius:50%;
+  background:var(--cyan); box-shadow:0 0 10px var(--cyan), 0 0 20px var(--cyan);
+}
+@keyframes ringRotate { to{transform:rotate(360deg);} }
+
+.brain-ring2 {
+  position:absolute; inset:-40px; border-radius:50%;
+  border:1px dashed rgba(0,212,255,0.07);
+  animation:ringRotate 35s linear infinite reverse;
+}
+
+/* Data labels floating around brain */
+.brain-label {
+  position:absolute; font-family:var(--font-m); font-size:9px;
+  letter-spacing:0.12em; color:var(--cyan); white-space:nowrap;
+  display:flex; align-items:center; gap:6px;
+}
+.brain-label::before { content:''; width:8px; height:1px; background:var(--cyan); }
+.bl-1 { top:10%; right:-60px; }
+.bl-2 { bottom:22%; right:-80px; }
+.bl-3 { bottom:10%; left:-50px; }
+.bl-4 { top:22%; left:-70px; flex-direction:row-reverse; }
+.bl-4::before { display:none; }
+.bl-4::after { content:''; width:8px; height:1px; background:var(--cyan); }
+
+@keyframes fadeUp { from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
+
+/* Stats ribbon */
+.stats-ribbon {
+  display:grid; grid-template-columns:repeat(4,1fr);
+  border-top:1px solid var(--b1);
+}
+@media(max-width:600px){ .stats-ribbon{grid-template-columns:repeat(2,1fr);} }
+
+.stat-c {
+  padding:32px 28px; text-align:center;
+  border-right:1px solid var(--b1); position:relative;
+  overflow:hidden; cursor:default;
+  transition:background 0.3s;
+}
+.stat-c:last-child { border-right:none; }
+.stat-c:hover { background:rgba(0,212,255,0.04); }
+.stat-c::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:2px;
+  background:linear-gradient(90deg, transparent, var(--cyan), transparent);
+  transform:scaleX(0); transition:transform 0.4s;
+}
+.stat-c:hover::before { transform:scaleX(1); }
+
+.stat-n {
+  font-family:var(--font-d); font-size:52px; line-height:1;
+  color:var(--cyan); display:block; letter-spacing:0.02em;
+}
+.stat-l {
+  font-family:var(--font-m); font-size:8px; letter-spacing:0.2em;
+  text-transform:uppercase; color:var(--t3); margin-top:6px; display:block;
+}
+
+/* How it works */
+.hiw {
+  padding:100px 60px;
+  max-width:1280px; margin:0 auto;
+}
+@media(max-width:768px){ .hiw{padding:70px 28px;} }
+
+.hiw-grid {
+  display:grid; grid-template-columns:repeat(3,1fr);
+  gap:1px; background:var(--b1); border:1px solid var(--b1);
+  margin-top:48px;
+}
+@media(max-width:768px){ .hiw-grid{grid-template-columns:1fr;} }
+
+.hiw-card {
+  background:var(--bg2); padding:44px 36px; position:relative;
+  overflow:hidden; transition:background 0.3s;
+}
+.hiw-card:hover { background:var(--bg3); }
+.hiw-card-num {
+  font-family:var(--font-d); font-size:88px; line-height:1;
+  color:rgba(0,212,255,0.06); position:absolute; top:16px; right:20px;
+  pointer-events:none;
+}
+.hiw-icon {
+  width:52px; height:52px; border:1px solid var(--b2);
+  display:flex; align-items:center; justify-content:center; margin-bottom:22px;
+  transition:border-color 0.3s, box-shadow 0.3s;
+}
+.hiw-card:hover .hiw-icon { border-color:var(--cyan); box-shadow:0 0 20px rgba(0,212,255,0.12); }
+.hiw-title {
+  font-family:var(--font-d); font-size:26px; letter-spacing:0.05em;
+  color:var(--t1); margin-bottom:12px;
+}
+.hiw-desc { font-size:13px; color:var(--t3); line-height:1.8; }
+
+/* Tumor classes */
+.tc-section { padding:0 60px 100px; max-width:1280px; margin:0 auto; }
+@media(max-width:768px){ .tc-section{padding:0 28px 70px;} }
+
+.tc-grid {
+  display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-top:48px;
+}
+@media(max-width:900px){ .tc-grid{grid-template-columns:repeat(2,1fr);} }
+@media(max-width:480px){ .tc-grid{grid-template-columns:1fr;} }
+
+.tc-card {
+  padding:32px 26px; border:1px solid var(--b1); background:var(--bg2);
+  position:relative; overflow:hidden; transition:all 0.3s; cursor:default;
+}
+.tc-card:hover { transform:translateY(-6px); box-shadow:0 20px 60px rgba(0,0,0,0.5); border-color:var(--b2); }
+.tc-stripe {
+  position:absolute; top:0; left:0; right:0; height:3px;
+  transition:height 0.3s;
+}
+.tc-card:hover .tc-stripe { height:4px; }
+.tc-g .tc-stripe { background:var(--red); }
+.tc-m .tc-stripe { background:var(--amber); }
+.tc-p .tc-stripe { background:var(--violet); }
+.tc-n .tc-stripe { background:var(--green); }
+.tc-emoji { font-size:32px; margin-bottom:16px; display:block; }
+.tc-name {
+  font-family:var(--font-d); font-size:24px; letter-spacing:0.04em;
+  color:var(--t1); margin-bottom:10px;
+}
+.tc-desc { font-size:12px; color:var(--t3); line-height:1.7; }
+.tc-acc {
+  display:inline-block; margin-top:14px;
+  font-family:var(--font-m); font-size:9px; letter-spacing:0.15em;
+  padding:4px 10px; border:1px solid;
+}
+.tc-g .tc-acc { color:var(--red); border-color:rgba(255,53,87,0.3); }
+.tc-m .tc-acc { color:var(--amber); border-color:rgba(255,181,32,0.3); }
+.tc-p .tc-acc { color:var(--violet); border-color:rgba(192,132,252,0.3); }
+.tc-n .tc-acc { color:var(--green); border-color:rgba(0,255,157,0.3); }
+
+/* IEEE strip */
+.ieee-strip {
+  margin:0 60px 100px; border:1px solid var(--b1);
+  background:var(--bg2); padding:48px 56px;
+  display:flex; gap:48px; align-items:center;
+  position:relative; overflow:hidden;
+}
+@media(max-width:768px){ .ieee-strip{flex-direction:column;margin:0 28px 70px;padding:36px;gap:32px;} }
+
+.ieee-strip::before {
+  content:''; position:absolute; top:0; left:0; width:3px; bottom:0;
+  background:linear-gradient(180deg, transparent, var(--cyan), transparent);
+}
+.ieee-strip::after {
+  content:'IEEE'; position:absolute; right:48px; top:50%; transform:translateY(-50%);
+  font-family:var(--font-d); font-size:120px; color:rgba(0,212,255,0.04); letter-spacing:0.05em;
+  pointer-events:none; line-height:1;
+}
+
+.ieee-badge {
+  width:96px; height:96px; border-radius:50%;
+  border:1.5px solid rgba(0,212,255,0.35);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:2px; flex-shrink:0; position:relative;
+}
+.ieee-badge::before {
+  content:''; position:absolute; inset:-8px; border-radius:50%;
+  border:1px dashed rgba(0,212,255,0.1); animation:ringRotate 15s linear infinite;
+}
+.ieee-badge-t { font-family:var(--font-m); font-size:10px; letter-spacing:0.2em; color:var(--cyan); }
+.ieee-badge-y { font-family:var(--font-d); font-size:30px; color:var(--t1); line-height:1; }
+
+.ieee-text h3 {
+  font-family:var(--font-d); font-size:32px; letter-spacing:0.04em;
+  color:var(--t1); margin-bottom:12px;
+}
+.ieee-text p { font-size:13px; color:var(--t3); line-height:1.8; max-width:580px; }
+.ieee-doi {
+  display:inline-block; margin-top:16px;
+  font-family:var(--font-m); font-size:9px; letter-spacing:0.12em;
+  color:var(--cyan); border-bottom:1px solid rgba(0,212,255,0.3);
+  padding-bottom:2px; cursor:pointer; transition:border-color 0.2s;
+}
+.ieee-doi:hover { border-color:var(--cyan); }
+
+/* ════════════════════════════════════════════
+   PAGE: SCANNER
+════════════════════════════════════════════ */
+.scanner-hdr {
+  text-align:center; padding:52px 32px 40px;
+  position:relative; overflow:hidden;
+}
+.scanner-hdr::before {
+  content:''; position:absolute; inset:0;
+  background:radial-gradient(ellipse at 50% -20%, rgba(0,212,255,0.07) 0%, transparent 65%);
+  pointer-events:none;
+}
+.scanner-hdr-tag {
+  font-family:var(--font-m); font-size:9px; letter-spacing:0.24em;
+  text-transform:uppercase; color:var(--cyan); margin-bottom:14px;
+}
+.scanner-hdr h1 {
+  font-family:var(--font-d); font-size:clamp(40px,6vw,80px);
+  line-height:0.95; letter-spacing:0.03em; color:var(--t1); margin-bottom:14px;
+}
+.scanner-hdr p { font-size:14px; color:var(--t3); max-width:440px; margin:0 auto; line-height:1.75; }
+
+/* Scanner body */
+.scanner-body {
+  max-width:1240px; margin:0 auto; padding:0 24px 80px;
+}
+
+.scanner-grid {
+  display:grid; grid-template-columns:1fr 1fr;
+  border:1px solid var(--b1); background:var(--b1); gap:1px;
+}
+@media(max-width:900px){ .scanner-grid{grid-template-columns:1fr;} }
+
+.spanel {
+  background:var(--bg2); padding:36px; position:relative; overflow:hidden;
+}
+
+.panel-hdr {
+  font-family:var(--font-m); font-size:9px; letter-spacing:0.24em;
+  text-transform:uppercase; color:var(--t3);
+  display:flex; align-items:center; gap:0; margin-bottom:28px;
+}
+.panel-hdr::after { content:''; flex:1; height:1px; background:var(--b1); margin-left:12px; }
+
+/* Upload */
+.upload-z {
+  border:1.5px dashed rgba(0,212,255,0.18); padding:52px 24px;
+  text-align:center; cursor:pointer; position:relative;
+  transition:all 0.3s; background:rgba(0,212,255,0.01);
+}
+.upload-z:hover, .upload-z.over {
+  border-color:var(--cyan); background:rgba(0,212,255,0.05);
+}
+.upload-z input {
+  position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%;
+}
+.upload-orb {
+  width:68px; height:68px; border-radius:50%;
+  border:1px solid var(--b2); margin:0 auto 20px;
+  display:flex; align-items:center; justify-content:center;
+  transition:all 0.3s; position:relative;
+}
+.upload-orb::before {
+  content:''; position:absolute; inset:-6px; border-radius:50%;
+  border:1px dashed rgba(0,212,255,0.1); animation:ringRotate 12s linear infinite;
+}
+.upload-z:hover .upload-orb { border-color:var(--cyan); box-shadow:0 0 24px rgba(0,212,255,0.15); }
+.upload-orb svg { color:var(--cyan); }
+
+.upload-text { font-family:var(--font-m); font-size:11px; letter-spacing:0.08em; color:var(--t3); line-height:2.2; }
+.upload-text strong { color:var(--t2); font-weight:500; font-size:12px; }
+.upload-note { font-size:10px; opacity:0.6; }
+
+/* Preview */
+.preview-container { display:none; }
+.preview-container.vis { display:block; }
+
+.mri-viewer {
+  position:relative; background:#000; overflow:hidden;
+  border:1px solid var(--b2);
+}
+.mri-img {
+  width:100%; display:block; max-height:300px;
+  object-fit:contain; object-position:center;
+  filter:grayscale(10%) contrast(1.12) brightness(1.05);
+}
+
+/* Scan beam */
+.scan-beam {
+  position:absolute; left:0; right:0; height:3px; top:-3px;
+  background:linear-gradient(90deg, transparent 0%, rgba(0,212,255,0.4) 20%, var(--cyan) 50%, rgba(0,212,255,0.4) 80%, transparent 100%);
+  box-shadow:0 0 16px var(--cyan), 0 0 32px rgba(0,212,255,0.4);
+  display:none;
+}
+.mri-viewer.scanning .scan-beam { display:block; animation:scanDown 1.8s linear infinite; }
+@keyframes scanDown { 0%{top:-3px;opacity:1} 95%{top:100%;opacity:0.8} 100%{top:100%;opacity:0} }
+
+/* Corner reticles */
+.reticles { position:absolute; inset:10px; pointer-events:none; }
+.r-c { position:absolute; width:18px; height:18px; }
+.r-tl { top:0;left:0; border-top:2px solid var(--cyan); border-left:2px solid var(--cyan); }
+.r-tr { top:0;right:0; border-top:2px solid var(--cyan); border-right:2px solid var(--cyan); }
+.r-bl { bottom:0;left:0; border-bottom:2px solid var(--cyan); border-left:2px solid var(--cyan); }
+.r-br { bottom:0;right:0; border-bottom:2px solid var(--cyan); border-right:2px solid var(--cyan); }
+
+/* Data overlay on MRI */
+.mri-overlay {
+  position:absolute; top:8px; right:8px;
+  font-family:var(--font-m); font-size:9px; letter-spacing:0.1em; color:var(--cyan);
+  line-height:1.8; text-align:right; pointer-events:none;
+}
+.mri-overlay-tl {
+  position:absolute; top:8px; left:8px;
+  font-family:var(--font-m); font-size:9px; letter-spacing:0.1em; color:rgba(0,212,255,0.6);
+  line-height:1.8; pointer-events:none;
+}
+
+.file-meta {
+  display:flex; justify-content:space-between;
+  padding:9px 12px; background:var(--bg3); border:1px solid var(--b1); border-top:none;
+  font-family:var(--font-m); font-size:9px; letter-spacing:0.08em; color:var(--t3);
+}
+
+.scan-error {
+  display:none; padding:12px 16px; margin-top:12px;
+  background:rgba(255,53,87,0.08); border:1px solid rgba(255,53,87,0.25);
+  font-family:var(--font-m); font-size:10px; color:var(--red); line-height:1.6;
+}
+.scan-error.vis { display:block; }
+
+.model-chips { display:flex; gap:8px; flex-wrap:wrap; margin-top:20px; }
+.chip {
+  font-family:var(--font-m); font-size:8px; letter-spacing:0.14em;
+  text-transform:uppercase; color:var(--t3); border:1px solid var(--b1);
+  padding:4px 10px; transition:all 0.2s;
+}
+.chip.active-chip { color:var(--cyan); border-color:rgba(0,212,255,0.3); }
+
+/* Results panel */
+.results-empty {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  min-height:380px; gap:18px; text-align:center;
+}
+.empty-rings {
+  width:80px; height:80px; position:relative;
+  display:flex; align-items:center; justify-content:center;
+}
+.er1 {
+  width:80px; height:80px; border-radius:50%;
+  border:1px solid var(--b1); position:absolute;
+  animation:ringRotate 25s linear infinite;
+}
+.er2 {
+  width:56px; height:56px; border-radius:50%;
+  border:1px dashed rgba(0,212,255,0.08); position:absolute;
+  animation:ringRotate 15s linear infinite reverse;
+}
+.er3 {
+  width:32px; height:32px; border-radius:50%;
+  border:1px solid rgba(0,212,255,0.15); position:absolute;
+}
+.empty-icon { position:relative; z-index:2; opacity:0.4; }
+.empty-lbl { font-family:var(--font-m); font-size:10px; letter-spacing:0.18em; color:var(--t3); }
+.empty-sub { font-family:var(--font-m); font-size:9px; color:var(--t4); letter-spacing:0.08em; }
+
+/* Loading */
+.results-loading {
+  display:none; flex-direction:column; align-items:center; justify-content:center;
+  min-height:380px; gap:28px;
+}
+.results-loading.vis { display:flex; }
+
+.load-spinner {
+  width:64px; height:64px; position:relative;
+}
+.spin-outer {
+  position:absolute; inset:0; border-radius:50%;
+  border:2px solid var(--b2); border-top-color:var(--cyan);
+  animation:spin 0.9s linear infinite;
+}
+.spin-inner {
+  position:absolute; inset:8px; border-radius:50%;
+  border:1.5px solid rgba(0,212,255,0.1); border-bottom-color:rgba(0,212,255,0.4);
+  animation:spin 1.5s linear infinite reverse;
+}
+.spin-dot {
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+}
+.spin-dot::after {
+  content:''; width:8px; height:8px; border-radius:50%;
+  background:var(--cyan); animation:orbPulse 1s ease-in-out infinite;
+}
+@keyframes spin { to{transform:rotate(360deg)} }
+
+.load-log {
+  font-family:var(--font-m); font-size:10px; letter-spacing:0.1em;
+  text-align:center; line-height:2.4;
+}
+.log-line { color:var(--t4); transition:color 0.3s; }
+.log-line.active { color:var(--cyan); }
+.log-line.done { color:var(--green); }
+.log-line.done::before { content:'✓  '; }
+
+/* Results output */
+.results-out { display:none; animation:pgIn 0.4s ease both; }
+.results-out.vis { display:block; }
+
+/* Tumor classification header */
+.res-header {
+  display:flex; align-items:center; gap:16px;
+  padding:20px 22px; margin-bottom:22px;
+  border-left:3px solid; position:relative;
+}
+.res-header.no-tumor { border-color:var(--green); background:rgba(0,255,157,0.06); }
+.res-header.glioma   { border-color:var(--red);   background:rgba(255,53,87,0.06); }
+.res-header.meningioma{ border-color:var(--amber); background:rgba(255,181,32,0.06); }
+.res-header.pituitary { border-color:var(--violet); background:rgba(192,132,252,0.06); }
+
+.res-icon { font-size:28px; flex-shrink:0; }
+.res-type {
+  font-family:var(--font-d); font-size:34px; letter-spacing:0.04em;
+  color:var(--t1); line-height:1;
+}
+.res-sub { font-family:var(--font-m); font-size:9px; letter-spacing:0.2em; color:var(--t3); margin-top:4px; }
+
+/* Risk row */
+.risk-bar {
+  display:flex; align-items:center; gap:14px;
+  padding:13px 16px; background:var(--bg3); border:1px solid var(--b1);
+  margin-bottom:22px;
+}
+.risk-led {
+  width:9px; height:9px; border-radius:50%; flex-shrink:0;
+  animation:ledBlink 1.8s ease-in-out infinite;
+}
+.risk-led.low    { background:var(--green); box-shadow:0 0 10px var(--green); }
+.risk-led.medium { background:var(--amber); box-shadow:0 0 10px var(--amber); }
+.risk-led.high   { background:var(--red);   box-shadow:0 0 10px var(--red); }
+@keyframes ledBlink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.risk-lbl { font-family:var(--font-m); font-size:9px; letter-spacing:0.16em; color:var(--t3); }
+.risk-val { font-family:var(--font-m); font-size:11px; letter-spacing:0.08em; color:var(--t2); }
+
+/* Confidence section */
+.conf-hdr { font-family:var(--font-m); font-size:9px; letter-spacing:0.22em; text-transform:uppercase; color:var(--t3); margin-bottom:16px; }
+.conf-row { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+.conf-lbl { font-family:var(--font-m); font-size:10px; letter-spacing:0.06em; color:var(--t3); width:88px; flex-shrink:0; }
+.conf-track { flex:1; height:5px; background:rgba(255,255,255,0.04); border-radius:3px; overflow:hidden; }
+.conf-fill { height:100%; border-radius:3px; width:0; transition:width 1.4s var(--ease); }
+.conf-pct { font-family:var(--font-m); font-size:10px; width:34px; text-align:right; flex-shrink:0; }
+
+/* Explanation */
+.explain-box {
+  background:var(--bg3); border:1px solid var(--b1); border-left:2px solid var(--b3);
+  padding:18px 20px; margin-bottom:20px;
+}
+.explain-hdr { font-family:var(--font-m); font-size:9px; letter-spacing:0.2em; text-transform:uppercase; color:var(--t3); margin-bottom:10px; }
+.explain-txt { font-size:13px; color:var(--t2); line-height:1.85; }
+
+/* ════════════════════════════════════════════
+   PAGE: RESEARCH
+════════════════════════════════════════════ */
+.research-hero {
+  padding:72px 60px 56px;
+  position:relative; overflow:hidden;
+}
+@media(max-width:768px){ .research-hero{padding:52px 28px 40px;} }
+
+.research-hero::before {
+  content:''; position:absolute; top:0; right:0;
+  width:50%; height:100%;
+  background:radial-gradient(ellipse at right, rgba(0,212,255,0.04) 0%, transparent 70%);
+  pointer-events:none;
+}
+
+.rh-tag { font-family:var(--font-m); font-size:9px; letter-spacing:0.24em; text-transform:uppercase; color:var(--cyan); margin-bottom:20px; display:flex; align-items:center; gap:10px; }
+.rh-tag::before { content:''; width:20px; height:1px; background:var(--cyan); }
+
+.rh-title {
+  font-family:var(--font-d); font-size:clamp(30px,4vw,52px);
+  line-height:1.05; letter-spacing:0.02em; color:var(--t1);
+  max-width:840px; margin-bottom:22px;
+}
+.paper-meta-row {
+  display:flex; gap:28px; flex-wrap:wrap;
+  font-family:var(--font-m); font-size:9px; letter-spacing:0.14em; color:var(--t3);
+}
+.pmr-item { display:flex; align-items:center; gap:8px; }
+.pmr-item::before { content:'●'; color:var(--cyan); font-size:6px; }
+
+/* Authors */
+.section-wrap { max-width:1280px; margin:0 auto; padding:0 60px 72px; }
+@media(max-width:768px){ .section-wrap{padding:0 28px 52px;} }
+
+.authors-grid {
+  display:grid; grid-template-columns:repeat(3,1fr);
+  gap:1px; background:var(--b1); border:1px solid var(--b1); margin-top:28px;
+}
+@media(max-width:768px){ .authors-grid{grid-template-columns:1fr;} }
+
+.author-card {
+  background:var(--bg2); padding:28px 26px;
+  transition:background 0.2s; position:relative;
+}
+.author-card:hover { background:var(--bg3); }
+.author-you-tag {
+  position:absolute; top:14px; right:14px;
+  font-family:var(--font-m); font-size:8px; letter-spacing:0.18em;
+  color:var(--green); border:1px solid rgba(0,255,157,0.3); padding:3px 8px;
+}
+.a-name { font-family:var(--font-d); font-size:21px; letter-spacing:0.04em; color:var(--t1); margin-bottom:5px; }
+.a-role { font-family:var(--font-m); font-size:8px; letter-spacing:0.18em; text-transform:uppercase; color:var(--cyan); margin-bottom:4px; }
+.a-email { font-family:var(--font-m); font-size:9px; color:var(--t3); }
+.a-inst { font-family:var(--font-m); font-size:8px; color:var(--t4); margin-top:6px; }
+
+/* Abstract */
+.abstract-box {
+  border:1px solid var(--b1); border-left:3px solid var(--cyan);
+  background:var(--bg2); padding:32px 36px; margin-top:28px;
+}
+.abstract-box p { font-size:14px; color:var(--t2); line-height:1.9; }
+.abstract-box .hl { color:var(--cyan); font-weight:500; }
+
+/* Methodology pipeline */
+.pipeline {
+  background:var(--b1); gap:1px; border:1px solid var(--b1);
+  display:grid; margin-top:28px;
+}
+.pipeline-step {
+  background:var(--bg2); padding:26px 32px;
+  display:grid; grid-template-columns:64px 1fr auto;
+  align-items:center; gap:24px; transition:background 0.2s;
+}
+@media(max-width:600px){ .pipeline-step{grid-template-columns:1fr;gap:12px;} }
+.pipeline-step:hover { background:var(--bg3); }
+.ps-num { font-family:var(--font-d); font-size:52px; color:rgba(0,212,255,0.1); line-height:1; }
+.ps-title { font-family:var(--font-d); font-size:20px; letter-spacing:0.04em; color:var(--t1); margin-bottom:5px; }
+.ps-desc { font-size:12px; color:var(--t3); line-height:1.7; }
+.ps-stat { font-family:var(--font-m); font-size:10px; color:var(--cyan); text-align:right; white-space:nowrap; }
+
+/* Results table */
+.fold-tabs { display:flex; border:1px solid var(--b1); border-bottom:none; width:fit-content; }
+.ftab {
+  font-family:var(--font-m); font-size:9px; letter-spacing:0.18em; text-transform:uppercase;
+  padding:10px 22px; background:var(--bg2); color:var(--t3);
+  border:none; border-right:1px solid var(--b1); cursor:pointer; transition:all 0.2s;
+}
+.ftab:last-child { border-right:none; }
+.ftab:hover { color:var(--t2); }
+.ftab.on { color:var(--cyan); background:var(--bg3); }
+
+.res-table-wrap { border:1px solid var(--b1); background:var(--bg2); overflow-x:auto; }
+table { width:100%; border-collapse:collapse; font-family:var(--font-m); font-size:10px; }
+thead tr { border-bottom:1px solid var(--b2); }
+th { padding:12px 16px; text-align:left; font-size:8px; letter-spacing:0.2em; text-transform:uppercase; color:var(--t3); font-weight:500; }
+td { padding:13px 16px; border-bottom:1px solid var(--b1); color:var(--t2); }
+tbody tr:last-child td { border-bottom:none; }
+tbody tr:hover { background:rgba(0,212,255,0.025); }
+.td-best { color:var(--cyan); font-weight:600; }
+.td-model { color:var(--t1); }
+.td-star { color:var(--cyan); font-size:8px; }
+
+/* Chart bars */
+.chart-section { margin-top:48px; }
+.chart-wrap {
+  border:1px solid var(--b1); background:var(--bg2); padding:32px; margin-top:28px;
+}
+.chart-bars {
+  display:flex; align-items:flex-end; gap:12px; height:180px;
+  border-bottom:1px solid var(--b2); padding-bottom:0; margin-bottom:16px;
+}
+.chart-bar-col { flex:1; display:flex; flex-direction:column; align-items:center; gap:8px; height:100%; justify-content:flex-end; }
+.chart-bar {
+  width:100%; border-radius:2px 2px 0 0;
+  position:relative; transition:all 1.2s var(--ease);
+  min-width:24px; cursor:default;
+}
+.chart-bar::before {
+  content:attr(data-pct);
+  position:absolute; top:-22px; left:50%; transform:translateX(-50%);
+  font-family:var(--font-m); font-size:9px; color:var(--cyan); white-space:nowrap;
+}
+.chart-bar:hover { filter:brightness(1.2); }
+.chart-lbl { font-family:var(--font-m); font-size:8px; letter-spacing:0.1em; text-transform:uppercase; color:var(--t3); text-align:center; }
+
+.findings-grid {
+  display:grid; grid-template-columns:repeat(3,1fr);
+  gap:1px; background:var(--b1); border:1px solid var(--b1); margin-top:28px;
+}
+@media(max-width:768px){ .findings-grid{grid-template-columns:1fr;} }
+.finding-card { background:var(--bg2); padding:32px 28px; }
+.finding-num { font-family:var(--font-d); font-size:52px; line-height:1; margin-bottom:12px; }
+.finding-title { font-size:13px; font-weight:600; color:var(--t2); margin-bottom:6px; }
+.finding-desc { font-size:12px; color:var(--t3); line-height:1.7; }
+
+/* ════════════════════════════════════════════
+   PAGE: ABOUT
+════════════════════════════════════════════ */
+.about-hero {
+  padding:100px 60px 80px; text-align:center;
+  position:relative; overflow:hidden;
+}
+@media(max-width:768px){ .about-hero{padding:70px 28px 60px;} }
+.about-hero::before {
+  content:''; position:absolute; inset:0;
+  background:radial-gradient(ellipse at 50% -10%, rgba(0,212,255,0.07) 0%, transparent 60%);
+  pointer-events:none;
+}
+.about-hero-tag { font-family:var(--font-m); font-size:9px; letter-spacing:0.24em; text-transform:uppercase; color:var(--cyan); margin-bottom:20px; }
+.about-hero h1 {
+  font-family:var(--font-d); font-size:clamp(60px,10vw,120px);
+  letter-spacing:0.04em; color:var(--t1); line-height:0.9; margin-bottom:28px;
+}
+.about-hero p { font-size:15px; color:var(--t3); max-width:520px; margin:0 auto; line-height:1.85; }
+
+.about-content { max-width:1100px; margin:0 auto; padding:0 60px 100px; }
+@media(max-width:768px){ .about-content{padding:0 28px 70px;} }
+
+.mission-card {
+  border:1px solid var(--b1); background:var(--bg2); padding:48px 52px;
+  position:relative; overflow:hidden; margin-bottom:48px;
+}
+.mission-card::before {
+  content:''; position:absolute; top:0; left:0; width:2px; bottom:0;
+  background:linear-gradient(180deg, transparent, var(--cyan), transparent);
+}
+.mission-card h2 { font-family:var(--font-d); font-size:40px; letter-spacing:0.04em; color:var(--t1); margin-bottom:18px; }
+.mission-card p { font-size:14px; color:var(--t2); line-height:1.9; max-width:680px; }
+.mission-card p+p { margin-top:14px; }
+
+.tech-stack {
+  display:grid; grid-template-columns:repeat(4,1fr);
+  gap:1px; background:var(--b1); border:1px solid var(--b1); margin-bottom:48px;
+}
+@media(max-width:600px){ .tech-stack{grid-template-columns:repeat(2,1fr);} }
+.tech-cell { background:var(--bg2); padding:30px 24px; text-align:center; transition:background 0.2s; }
+.tech-cell:hover { background:var(--bg3); }
+.tech-emoji { font-size:30px; margin-bottom:12px; display:block; }
+.tech-name { font-family:var(--font-d); font-size:20px; letter-spacing:0.04em; color:var(--t1); margin-bottom:4px; }
+.tech-lbl { font-family:var(--font-m); font-size:8px; letter-spacing:0.14em; text-transform:uppercase; color:var(--t3); }
+
+.dataset-row {
+  display:grid; grid-template-columns:repeat(3,1fr);
+  gap:1px; background:var(--b1); border:1px solid var(--b1); margin-bottom:48px;
+}
+@media(max-width:600px){ .dataset-row{grid-template-columns:1fr;} }
+.ds-cell { background:var(--bg2); padding:32px 28px; text-align:center; }
+.ds-num { font-family:var(--font-d); font-size:52px; color:var(--cyan); line-height:1; }
+.ds-lbl { font-family:var(--font-m); font-size:8px; letter-spacing:0.18em; text-transform:uppercase; color:var(--t3); margin-top:4px; }
+.ds-desc { font-size:12px; color:var(--t3); margin-top:8px; line-height:1.6; }
+
+.disclaimer-card {
+  border:1px solid rgba(255,181,32,0.2); background:rgba(255,181,32,0.04);
+  padding:40px 48px; position:relative; overflow:hidden;
+}
+.disclaimer-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:var(--amber); }
+.disclaimer-card h3 { font-family:var(--font-d); font-size:32px; letter-spacing:0.04em; color:var(--amber); margin-bottom:14px; }
+.disclaimer-card p { font-size:13px; color:var(--t2); line-height:1.85; max-width:660px; }
+.disclaimer-card p+p { margin-top:12px; }
+
+/* ════════════════════════════════════════════
+   FOOTER
+════════════════════════════════════════════ */
+footer {
+  border-top:1px solid var(--b1); padding:40px 60px;
+  display:flex; justify-content:space-between; align-items:center;
+  flex-wrap:wrap; gap:20px; position:relative; z-index:1;
+}
+@media(max-width:768px){ footer{padding:32px 28px; flex-direction:column; text-align:center;} }
+
+.footer-brand { font-family:var(--font-d); font-size:22px; letter-spacing:0.08em; color:var(--t2); }
+.footer-brand em { font-style:normal; color:var(--cyan); }
+.footer-sub { font-family:var(--font-m); font-size:8px; letter-spacing:0.14em; text-transform:uppercase; color:var(--t4); margin-top:4px; }
+.footer-r { font-family:var(--font-m); font-size:9px; letter-spacing:0.08em; color:var(--t4); text-align:right; line-height:2; }
+@media(max-width:768px){ .footer-r{text-align:center;} }
+
+</style>
+</head>
+<body>
+
+<!-- Neural canvas background -->
+<canvas id="neural-canvas"></canvas>
+
+<!-- ════════════ NAV ════════════ -->
+<nav id="nav">
+  <div class="nav-logo" onclick="go('home')">
+    <div class="nav-orb"></div>
+    <div class="nav-name">Neuro<em>Scan</em></div>
+  </div>
+  <div class="nav-center">
+    <button class="nav-btn on" id="nb-home"     onclick="go('home')">Home</button>
+    <button class="nav-btn"    id="nb-scanner"  onclick="go('scanner')">Scanner</button>
+    <button class="nav-btn"    id="nb-research" onclick="go('research')">Research</button>
+    <button class="nav-btn"    id="nb-about"    onclick="go('about')">About</button>
+  </div>
+  <button class="nav-cta" onclick="go('scanner')">Open Scanner ↗</button>
+</nav>
+
+
+<!-- ════════════════════════════════════════
+     PAGE: HOME
+════════════════════════════════════════ -->
+<div class="page on" id="page-home">
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-left">
+      <div class="hero-eyebrow">
+        <span class="hero-dot"></span>
+        IEEE SCEECS 2026 · PEER-REVIEWED RESEARCH PROTOTYPE
+      </div>
+      <h1 class="hero-h1">
+        DETECT<br>
+        <span class="c1">BRAIN</span><br>
+        <span class="c2">TUMORS</span>
+      </h1>
+      <p class="hero-p">Upload any brain MRI scan. Get AI-powered classification across four clinical categories — Glioma, Meningioma, Pituitary, and No Tumor — backed by a published IEEE paper achieving 99% accuracy.</p>
+      <div class="hero-actions">
+        <button class="btn-p" onclick="go('scanner')">Analyze MRI Scan →</button>
+        <button class="btn-s" onclick="go('research')">View Research</button>
+      </div>
+      <div class="hero-disclaimer">⚠ RESEARCH PROTOTYPE · NOT FOR CLINICAL USE</div>
+    </div>
+
+    <!-- Animated Brain Visualization -->
+    <div class="hero-right">
+      <div class="brain-wrap">
+        <div class="brain-ring"></div>
+        <div class="brain-ring2"></div>
+        <div class="brain-label bl-1">AUC 0.999</div>
+        <div class="brain-label bl-2">NEURAL NET</div>
+        <div class="brain-label bl-3">16K+ SCANS</div>
+        <div class="brain-label bl-4">99.0% ACC</div>
+        <!-- SVG Brain -->
+        <svg class="brain-svg" viewBox="0 0 340 340" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="bg-grad" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#071828"/>
+              <stop offset="100%" stop-color="#020810"/>
+            </radialGradient>
+            <radialGradient id="brain-grad" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#0d2a40"/>
+              <stop offset="80%" stop-color="#071828"/>
+              <stop offset="100%" stop-color="#030f1c"/>
+            </radialGradient>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+              <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <filter id="softglow">
+              <feGaussianBlur stdDeviation="6" result="coloredBlur"/>
+              <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+
+          <!-- Skull outline -->
+          <ellipse cx="170" cy="162" rx="148" ry="152" fill="url(#bg-grad)" stroke="rgba(0,212,255,0.12)" stroke-width="1"/>
+
+          <!-- Brain outer cortex -->
+          <path d="M170 38 C230 38 278 68 298 112 C318 156 312 208 288 242 C264 276 218 298 170 298 C122 298 76 276 52 242 C28 208 22 156 42 112 C62 68 110 38 170 38Z" fill="url(#brain-grad)" stroke="rgba(0,212,255,0.2)" stroke-width="1"/>
+
+          <!-- Gyri / sulci lines - Left hemisphere -->
+          <path d="M90 90 Q110 80 130 90 Q150 100 145 120" stroke="rgba(0,212,255,0.15)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <path d="M60 130 Q80 118 100 128 Q120 138 118 158" stroke="rgba(0,212,255,0.12)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <path d="M48 170 Q70 160 90 172 Q110 184 105 205" stroke="rgba(0,212,255,0.1)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <path d="M60 210 Q80 200 100 212 Q118 224 112 244" stroke="rgba(0,212,255,0.1)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <path d="M80 250 Q105 240 125 252" stroke="rgba(0,212,255,0.08)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+
+          <!-- Gyri / sulci lines - Right hemisphere -->
+          <path d="M250 90 Q230 80 210 90 Q190 100 195 120" stroke="rgba(0,212,255,0.15)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <path d="M280 130 Q260 118 240 128 Q220 138 222 158" stroke="rgba(0,212,255,0.12)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <path d="M292 170 Q270 160 250 172 Q230 184 235 205" stroke="rgba(0,212,255,0.1)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <path d="M280 210 Q260 200 240 212 Q222 224 228 244" stroke="rgba(0,212,255,0.1)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <path d="M260 250 Q235 240 215 252" stroke="rgba(0,212,255,0.08)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+
+          <!-- Midline (interhemispheric fissure) -->
+          <line x1="170" y1="42" x2="170" y2="298" stroke="rgba(0,212,255,0.18)" stroke-width="1" stroke-dasharray="4 4"/>
+
+          <!-- Corpus callosum suggestion -->
+          <path d="M130 155 Q150 148 170 150 Q190 152 210 155" stroke="rgba(0,212,255,0.25)" stroke-width="1.5" fill="none"/>
+          <path d="M135 165 Q155 158 170 160 Q185 162 205 165" stroke="rgba(0,212,255,0.2)" stroke-width="1.2" fill="none"/>
+
+          <!-- Ventricle outlines -->
+          <path d="M148 170 Q160 162 170 164 Q180 166 192 170 Q185 185 170 186 Q155 187 148 170Z" stroke="rgba(0,212,255,0.2)" stroke-width="1" fill="rgba(0,212,255,0.04)"/>
+
+          <!-- Highlighted anomaly region (simulated tumor area) with animation -->
+          <circle cx="108" cy="110" r="18" fill="rgba(255,53,87,0.12)" stroke="rgba(255,53,87,0.4)" stroke-width="1.5" filter="url(#glow)">
+            <animate attributeName="r" values="17;20;17" dur="3s" repeatCount="indefinite"/>
+            <animate attributeName="opacity" values="0.8;1;0.8" dur="3s" repeatCount="indefinite"/>
+          </circle>
+          <circle cx="108" cy="110" r="10" fill="rgba(255,53,87,0.25)">
+            <animate attributeName="r" values="9;12;9" dur="3s" repeatCount="indefinite"/>
+          </circle>
+
+          <!-- Scan line animation across brain -->
+          <line x1="50" y1="170" x2="290" y2="170" stroke="rgba(0,212,255,0.06)" stroke-width="1">
+            <animateTransform attributeName="transform" type="translate" values="0,-80; 0,80; 0,-80" dur="5s" repeatCount="indefinite"/>
+          </line>
+
+          <!-- Crosshair on anomaly -->
+          <line x1="96" y1="110" x2="120" y2="110" stroke="rgba(255,53,87,0.5)" stroke-width="1"/>
+          <line x1="108" y1="98" x2="108" y2="122" stroke="rgba(255,53,87,0.5)" stroke-width="1"/>
+
+          <!-- Outer glow -->
+          <ellipse cx="170" cy="162" rx="148" ry="152" fill="none" stroke="rgba(0,212,255,0.06)" stroke-width="8" filter="url(#softglow)"/>
+
+          <!-- Scale marker -->
+          <line x1="210" y1="280" x2="260" y2="280" stroke="rgba(0,212,255,0.3)" stroke-width="1"/>
+          <line x1="210" y1="276" x2="210" y2="284" stroke="rgba(0,212,255,0.3)" stroke-width="1"/>
+          <line x1="260" y1="276" x2="260" y2="284" stroke="rgba(0,212,255,0.3)" stroke-width="1"/>
+          <text x="235" y="294" font-family="'IBM Plex Mono'" font-size="8" fill="rgba(0,212,255,0.4)" text-anchor="middle" letter-spacing="1">5cm</text>
+
+          <!-- Coord labels -->
+          <text x="60" y="56" font-family="'IBM Plex Mono'" font-size="8" fill="rgba(0,212,255,0.3)" letter-spacing="1">L</text>
+          <text x="272" y="56" font-family="'IBM Plex Mono'" font-size="8" fill="rgba(0,212,255,0.3)" letter-spacing="1">R</text>
+          <text x="158" y="56" font-family="'IBM Plex Mono'" font-size="8" fill="rgba(0,212,255,0.3)" letter-spacing="1">S</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats ribbon -->
+  <div class="stats-ribbon">
+    <div class="stat-c reveal">
+      <span class="stat-n" data-target="99">0</span>
+      <span class="stat-n" style="font-size:32px;display:inline">%</span>
+      <span class="stat-l">Classification Accuracy<br>10-Fold Cross-Validation</span>
+    </div>
+    <div class="stat-c reveal" style="transition-delay:0.1s">
+      <span class="stat-n">0.999</span>
+      <span class="stat-l">AUC Score<br>Neural Network</span>
+    </div>
+    <div class="stat-c reveal" style="transition-delay:0.2s">
+      <span class="stat-n" data-target="16000">0</span>
+      <span class="stat-n" style="font-size:32px;display:inline">+</span>
+      <span class="stat-l">Training Images<br>Multi-Source Dataset</span>
+    </div>
+    <div class="stat-c reveal" style="transition-delay:0.3s">
+      <span class="stat-n" data-target="6">0</span>
+      <span class="stat-l">ML Models<br>Benchmarked</span>
+    </div>
+  </div>
+
+  <!-- How it works -->
+  <div class="hiw">
+    <div class="tag reveal">How It Works</div>
+    <h2 class="section-head reveal" style="margin-top:14px">THREE STEPS TO<br>CLASSIFICATION</h2>
+    <div class="hiw-grid">
+      <div class="hiw-card reveal">
+        <div class="hiw-card-num">01</div>
+        <div class="hiw-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="hiw-title">UPLOAD MRI</div>
+        <div class="hiw-desc">Drag and drop your brain MRI scan — T1, T2, or any axial/coronal/sagittal view. Any resolution. The system handles all preprocessing internally: 224×224 resize, pixel normalization, contrast enhancement.</div>
+      </div>
+      <div class="hiw-card reveal" style="transition-delay:0.1s">
+        <div class="hiw-card-num">02</div>
+        <div class="hiw-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="1.5"><ellipse cx="12" cy="12" rx="10" ry="6"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        </div>
+        <div class="hiw-title">AI ANALYSIS</div>
+        <div class="hiw-desc">Claude Vision AI performs deep learning analysis using InceptionV3 feature embeddings — the same architecture used in the IEEE paper. Features are projected through PCA reduction and classified by the neural network.</div>
+      </div>
+      <div class="hiw-card reveal" style="transition-delay:0.2s">
+        <div class="hiw-card-num">03</div>
+        <div class="hiw-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </div>
+        <div class="hiw-title">FULL REPORT</div>
+        <div class="hiw-desc">Receive the detected tumor type, per-class confidence scores, clinical risk level, and a plain-English explanation of the findings. Download a print-ready PDF diagnostic report for further consultation.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tumor classes -->
+  <div class="tc-section">
+    <div class="tag reveal">Detection Categories</div>
+    <h2 class="section-head reveal" style="margin-top:14px">FOUR CLINICAL<br>CATEGORIES</h2>
+    <div class="tc-grid">
+      <div class="tc-card tc-g reveal">
+        <div class="tc-stripe"></div>
+        <span class="tc-emoji">🔴</span>
+        <div class="tc-name">GLIOMA</div>
+        <div class="tc-desc">Tumors arising from glial cells. The most common primary brain tumor, often aggressive. Includes Glioblastoma Multiforme (GBM) — grade IV. Requires immediate specialist referral.</div>
+        <span class="tc-acc">HIGH RISK</span>
+      </div>
+      <div class="tc-card tc-m reveal" style="transition-delay:0.1s">
+        <div class="tc-stripe"></div>
+        <span class="tc-emoji">🟡</span>
+        <div class="tc-name">MENINGIOMA</div>
+        <div class="tc-desc">Arises from the meninges surrounding the brain and spinal cord. Usually benign and slow-growing. Most common primary brain tumor in adults. Often surgically treatable with excellent prognosis.</div>
+        <span class="tc-acc">MEDIUM RISK</span>
+      </div>
+      <div class="tc-card tc-p reveal" style="transition-delay:0.2s">
+        <div class="tc-stripe"></div>
+        <span class="tc-emoji">🟣</span>
+        <div class="tc-name">PITUITARY</div>
+        <div class="tc-desc">Tumor on the pituitary gland at the brain base. Disrupts hormone regulation and may impair vision. Usually non-cancerous. Often treated with medication, radiation, or minimally invasive surgery.</div>
+        <span class="tc-acc">MEDIUM RISK</span>
+      </div>
+      <div class="tc-card tc-n reveal" style="transition-delay:0.3s">
+        <div class="tc-stripe"></div>
+        <span class="tc-emoji">🟢</span>
+        <div class="tc-name">NO TUMOR</div>
+        <div class="tc-desc">Healthy brain tissue with no detectable tumor mass in the MRI scan. Normal neurological anatomy confirmed by the classifier. Routine monitoring may still be recommended by a physician.</div>
+        <span class="tc-acc">LOW RISK</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- IEEE strip -->
+  <div class="ieee-strip reveal">
+    <div class="glow-line"></div>
+    <div class="ieee-badge">
+      <div class="ieee-badge-t">IEEE</div>
+      <div class="ieee-badge-y">2026</div>
+    </div>
+    <div class="ieee-text">
+      <h3>PUBLISHED & PEER-REVIEWED</h3>
+      <p>NeuroScan AI is built on research published at the 2026 IEEE International Students' Conference on Electrical, Electronics, and Computer Science (SCEECS). The paper demonstrates 99.0% classification accuracy with AUC 0.999 in 10-fold cross-validation across a dataset of 16,000+ brain MRI images from three validated sources.</p>
+      <div class="ieee-doi" onclick="go('research')">DOI: 10.1109/SCEECS68810.2026.11429884  →  Read Full Paper</div>
+    </div>
+  </div>
+
+  <footer>
+    <div>
+      <div class="footer-brand">Neuro<em>Scan</em> AI</div>
+      <div class="footer-sub">Brain Tumor Detection · IEEE SCEECS 2026</div>
+    </div>
+    <div class="footer-r">
+      SRM Institute of Science and Technology · Kattankulathur<br>
+      Department of Computational Intelligence<br>
+      <span style="opacity:0.5">Research prototype · Not for clinical use · © 2026</span>
+    </div>
+  </footer>
+</div>
+
+
+<!-- ════════════════════════════════════════
+     PAGE: SCANNER
+════════════════════════════════════════ -->
+<div class="page" id="page-scanner">
+
+  <div class="scanner-hdr">
+    <div class="scanner-hdr-tag">// INCEPTION V3 · PCA · NEURAL NETWORK CLASSIFIER</div>
+    <h1>MRI SCAN<br>ANALYZER</h1>
+    <p>Upload a T1 or T2-weighted brain MRI for instant AI-powered classification across four tumor categories.</p>
+  </div>
+
+  <div class="scanner-body">
+    <div class="scanner-grid">
+
+      <!-- Left: Upload panel -->
+      <div class="spanel">
+        <div class="glow-line"></div>
+        <div class="panel-hdr">MRI Image Input</div>
+
+        <!-- Upload zone -->
+        <div class="upload-z" id="uploadZ">
+          <input type="file" id="fileInput" accept="image/*">
+          <div class="upload-orb">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </div>
+          <div class="upload-text">
+            <strong>Drop MRI scan here</strong><br>
+            or click to select file<br>
+            <span class="upload-note">PNG · JPG · WEBP · DICOM preview · Any resolution</span>
+          </div>
+        </div>
+
+        <!-- MRI Preview -->
+        <div class="preview-container" id="previewCont">
+          <div class="mri-viewer" id="mriViewer">
+            <img class="mri-img" id="mriImg" alt="MRI">
+            <div class="scan-beam"></div>
+            <div class="reticles">
+              <div class="r-c r-tl"></div><div class="r-c r-tr"></div>
+              <div class="r-c r-bl"></div><div class="r-c r-br"></div>
+            </div>
+            <div class="mri-overlay">
+              <div id="ovDate">—</div>
+              <div>AXIAL</div>
+              <div>T1W</div>
+            </div>
+            <div class="mri-overlay-tl">
+              <div>NEUROSCAN</div>
+              <div id="ovSeq">SEQ: —</div>
+            </div>
+          </div>
+          <div class="file-meta">
+            <span id="fName">—</span>
+            <span id="fSize" style="color:var(--cyan)">—</span>
+          </div>
+        </div>
+
+        <div class="scan-error" id="scanErr"></div>
+
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px">
+          <button class="btn-p" id="btnAnalyze" style="display:none" onclick="runScan()">▶ &nbsp;Analyze MRI Scan</button>
+          <button class="btn-g" id="btnReset" style="display:none" onclick="resetScan()">✕ &nbsp;Upload New Scan</button>
+        </div>
+
+        <div class="model-chips">
+          <div class="chip active-chip">InceptionV3</div>
+          <div class="chip active-chip">PCA 95%</div>
+          <div class="chip active-chip">Neural Net</div>
+          <div class="chip">k=3,5,10 CV</div>
+          <div class="chip">4 Classes</div>
+        </div>
+      </div>
+
+      <!-- Right: Results panel -->
+      <div class="spanel" id="resultPanel">
+        <div class="glow-line"></div>
+        <div class="panel-hdr">Analysis Results</div>
+
+        <!-- Empty state -->
+        <div class="results-empty" id="resEmpty">
+          <div class="empty-rings">
+            <div class="er1"></div>
+            <div class="er2"></div>
+            <div class="er3"></div>
+            <div class="empty-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="1" opacity="0.5">
+                <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
+              </svg>
+            </div>
+          </div>
+          <div class="empty-lbl">AWAITING SCAN INPUT</div>
+          <div class="empty-sub">Upload an MRI image to begin</div>
+        </div>
+
+        <!-- Loading state -->
+        <div class="results-loading" id="resLoading">
+          <div class="load-spinner">
+            <div class="spin-outer"></div>
+            <div class="spin-inner"></div>
+            <div class="spin-dot"></div>
+          </div>
+          <div class="load-log">
+            <div class="log-line" id="ll1">Preprocessing MRI image...</div>
+            <div class="log-line" id="ll2">Extracting InceptionV3 embeddings...</div>
+            <div class="log-line" id="ll3">Applying PCA dimensionality reduction...</div>
+            <div class="log-line" id="ll4">Running neural network classifier...</div>
+            <div class="log-line" id="ll5">Generating diagnostic report...</div>
+          </div>
+        </div>
+
+        <!-- Results output -->
+        <div class="results-out" id="resOut">
+
+          <div class="res-header" id="resHdr">
+            <div class="res-icon" id="resIcon">●</div>
+            <div>
+              <div class="res-type" id="resType">—</div>
+              <div class="res-sub">CLASSIFICATION RESULT · NEUROSCAN AI</div>
+            </div>
+          </div>
+
+          <div class="risk-bar">
+            <div class="risk-led" id="riskLed"></div>
+            <div style="flex:1">
+              <div class="risk-lbl">CLINICAL RISK ASSESSMENT</div>
+              <div class="risk-val" id="riskVal">—</div>
+            </div>
+          </div>
+
+          <div style="margin-bottom:22px">
+            <div class="conf-hdr">Confidence Per Classification Class</div>
+            <div class="conf-row">
+              <div class="conf-lbl">No Tumor</div>
+              <div class="conf-track"><div class="conf-fill" id="cf-nt" style="background:var(--green)"></div></div>
+              <div class="conf-pct" id="cp-nt" style="color:var(--green)">0%</div>
+            </div>
+            <div class="conf-row">
+              <div class="conf-lbl">Glioma</div>
+              <div class="conf-track"><div class="conf-fill" id="cf-gl" style="background:var(--red)"></div></div>
+              <div class="conf-pct" id="cp-gl" style="color:var(--red)">0%</div>
+            </div>
+            <div class="conf-row">
+              <div class="conf-lbl">Meningioma</div>
+              <div class="conf-track"><div class="conf-fill" id="cf-mn" style="background:var(--amber)"></div></div>
+              <div class="conf-pct" id="cp-mn" style="color:var(--amber)">0%</div>
+            </div>
+            <div class="conf-row">
+              <div class="conf-lbl">Pituitary</div>
+              <div class="conf-track"><div class="conf-fill" id="cf-pt" style="background:var(--violet)"></div></div>
+              <div class="conf-pct" id="cp-pt" style="color:var(--violet)">0%</div>
+            </div>
+          </div>
+
+          <div class="explain-box">
+            <div class="explain-hdr">Clinical Observations</div>
+            <div class="explain-txt" id="explainTxt">—</div>
+          </div>
+
+          <button class="btn-p" onclick="downloadPDF()" style="width:100%;margin-bottom:10px">
+            ↓ &nbsp;Download Diagnostic Report (PDF)
+          </button>
+          <button class="btn-g" onclick="resetScan()">Upload New Scan</button>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom info row -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--b1);border:1px solid var(--b1);border-top:none;margin-top:0">
+      <div class="spanel" style="padding:24px 28px">
+        <div style="font-family:var(--font-d);font-size:36px;color:rgba(0,212,255,0.15);margin-bottom:8px">01</div>
+        <div style="font-size:13px;font-weight:600;color:var(--t2);margin-bottom:4px">Research-Backed</div>
+        <div style="font-size:12px;color:var(--t3);line-height:1.65">Methodology from IEEE SCEECS 2026. 16K+ training images from Kaggle, BRISC, and FigShare.</div>
+      </div>
+      <div class="spanel" style="padding:24px 28px">
+        <div style="font-family:var(--font-d);font-size:36px;color:rgba(0,212,255,0.15);margin-bottom:8px">02</div>
+        <div style="font-size:13px;font-weight:600;color:var(--t2);margin-bottom:4px">Multi-Model Validated</div>
+        <div style="font-size:12px;color:var(--t3);line-height:1.65">Neural Net, SVM, Random Forest — all benchmarked. Neural Net achieves AUC 0.999 in 10-fold CV.</div>
+      </div>
+      <div class="spanel" style="padding:24px 28px">
+        <div style="font-family:var(--font-d);font-size:36px;color:rgba(255,181,32,0.15);margin-bottom:8px">03</div>
+        <div style="font-size:13px;font-weight:600;color:var(--amber);margin-bottom:4px">Not For Clinical Use</div>
+        <div style="font-size:12px;color:var(--t3);line-height:1.65">Research prototype only. Always consult a qualified radiologist or neurologist for medical decisions.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════
+     PAGE: RESEARCH
+════════════════════════════════════════ -->
+<div class="page" id="page-research">
+
+  <div class="research-hero">
+    <div class="rh-tag">Published Research</div>
+    <h1 class="rh-title">Deep Learning Based Brain Tumor Classification Using Orange Data Analytics</h1>
+    <div class="paper-meta-row">
+      <div class="pmr-item">IEEE SCEECS 2026</div>
+      <div class="pmr-item">DOI: 10.1109/SCEECS68810.2026.11429884</div>
+      <div class="pmr-item">March 2026</div>
+      <div class="pmr-item">6 Authors · 2 Institutions</div>
+    </div>
+    <button class="btn-s" style="margin-top:24px" onclick="go('scanner')">Try The Scanner →</button>
+  </div>
+
+  <hr class="sep">
+
+  <!-- Authors -->
+  <div class="section-wrap">
+    <div class="tag" style="margin-bottom:14px">Research Team</div>
+    <div class="authors-grid">
+      <div class="author-card">
+        <div class="a-name">Praveen R</div>
+        <div class="a-role">Lead Author</div>
+        <div class="a-email">praveenram2510@gmail.com</div>
+        <div class="a-inst">NIT Puducherry · Computer Science & Engineering</div>
+      </div>
+      <div class="author-card">
+        <div class="author-you-tag">YOU</div>
+        <div class="a-name">Monish M</div>
+        <div class="a-role">Co-Author</div>
+        <div class="a-email">mm0180@srmist.edu.in</div>
+        <div class="a-inst">SRM IST · Computational Intelligence</div>
+      </div>
+      <div class="author-card">
+        <div class="a-name">T R Saravanan</div>
+        <div class="a-role">Co-Author</div>
+        <div class="a-email">saravant1@srmist.edu.in</div>
+        <div class="a-inst">SRM IST · Computational Intelligence</div>
+      </div>
+      <div class="author-card">
+        <div class="a-name">R Archith Shri Hari</div>
+        <div class="a-role">Co-Author</div>
+        <div class="a-email">ar9802@srmist.edu.in</div>
+        <div class="a-inst">SRM IST · Computational Intelligence</div>
+      </div>
+      <div class="author-card">
+        <div class="a-name">Sibinath K</div>
+        <div class="a-role">Co-Author</div>
+        <div class="a-email">sk8381@srmist.edu.in</div>
+        <div class="a-inst">SRM IST · Computational Intelligence</div>
+      </div>
+      <div class="author-card">
+        <div class="a-name">Sumanth R</div>
+        <div class="a-role">Co-Author</div>
+        <div class="a-email">sr4148@srmist.edu.in</div>
+        <div class="a-inst">SRM IST · Computational Intelligence</div>
+      </div>
+    </div>
+
+    <!-- Abstract -->
+    <div class="tag" style="margin-top:52px;margin-bottom:14px">Abstract</div>
+    <div class="abstract-box">
+      <p>This research presents a brain tumor classification workflow using the Orange image data mining tool, covering every step from image import and visualization to machine learning evaluation. The pipeline includes data preparation, feature extraction using <span class="hl">InceptionV3 image embeddings</span>, and dimensionality reduction with <span class="hl">Principal Component Analysis (PCA)</span>. Six algorithms — Random Forests, SVM, Neural Networks, Logistic Regression, Naive Bayes, and Decision Trees — are systematically trained and evaluated using <span class="hl">k-fold (k=3, 5, 10) cross-validation</span>. Results show the neural network model consistently achieving classification accuracy above 96% and AUC up to 0.997, reaching a peak of <span class="hl">99.0% accuracy and AUC 0.999</span> in 10-fold validation — improving on prior work by +7%.</p>
+    </div>
+  </div>
+
+  <hr class="sep">
+
+  <!-- Methodology -->
+  <div class="section-wrap">
+    <div class="tag" style="margin-bottom:14px">Methodology Pipeline</div>
+    <div class="pipeline">
+      <div class="pipeline-step">
+        <div class="ps-num">01</div>
+        <div>
+          <div class="ps-title">Data Collection & Integration</div>
+          <div class="ps-desc">Combined 16,000+ MRI images from three validated public sources. Expert radiologist annotation for every image across four clinical categories.</div>
+        </div>
+        <div class="ps-stat">Kaggle: 7,023<br>BRISC: 6,000<br>FigShare: 3,064</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="ps-num">02</div>
+        <div>
+          <div class="ps-title">Preprocessing & Augmentation</div>
+          <div class="ps-desc">Resize to 224×224, pixel normalization. Augmentation: random rotation ±15°, horizontal flip, brightness/contrast ±20%, Gaussian noise σ=0.1.</div>
+        </div>
+        <div class="ps-stat">+8% MCC<br>from augment.</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="ps-num">03</div>
+        <div>
+          <div class="ps-title">Feature Extraction</div>
+          <div class="ps-desc">InceptionV3 CNN embeddings → 2048-dimensional feature vectors per scan. Combined with handcrafted texture, contrast, variance, and mean intensity features.</div>
+        </div>
+        <div class="ps-stat">2048-dim<br>vectors</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="ps-num">04</div>
+        <div>
+          <div class="ps-title">PCA Dimensionality Reduction</div>
+          <div class="ps-desc">PCA reduces 2048-dim to 100–150 components retaining 95% of original variance. Eliminates noise and redundancy. Reduces computation time by 70%.</div>
+        </div>
+        <div class="ps-stat">95% variance<br>−70% compute</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="ps-num">05</div>
+        <div>
+          <div class="ps-title">Model Training & Evaluation</div>
+          <div class="ps-desc">6 classifiers trained in parallel: Neural Network (Adam optimizer), SVM, Random Forest (n=100, max_depth=10), Logistic Regression, Naive Bayes, Decision Tree.</div>
+        </div>
+        <div class="ps-stat">k=3,5,10<br>stratified CV</div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="sep">
+
+  <!-- Results -->
+  <div class="section-wrap">
+    <div class="tag" style="margin-bottom:28px">Experimental Results</div>
+
+    <div class="fold-tabs">
+      <button class="ftab on" onclick="switchFold(3,this)">3-Fold CV</button>
+      <button class="ftab" onclick="switchFold(5,this)">5-Fold CV</button>
+      <button class="ftab" onclick="switchFold(10,this)">10-Fold CV</button>
+    </div>
+    <div class="res-table-wrap">
+      <table><thead><tr>
+        <th>Model</th><th>AUC</th><th>Accuracy</th><th>F1 Score</th><th>Precision</th><th>Recall</th><th>MCC</th>
+      </tr></thead>
+      <tbody id="tBody"></tbody></table>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-section">
+      <div class="tag" style="margin-bottom:14px">Accuracy Comparison (10-Fold)</div>
+      <div class="chart-wrap">
+        <div class="chart-bars" id="chartBars"></div>
+        <div style="display:flex;gap:12px" id="chartLabels"></div>
+      </div>
+    </div>
+
+    <!-- Key findings -->
+    <div class="tag" style="margin-top:52px;margin-bottom:14px">Key Findings</div>
+    <div class="findings-grid">
+      <div class="finding-card">
+        <div class="finding-num" style="color:var(--cyan)">+7%</div>
+        <div class="finding-title">Accuracy Improvement</div>
+        <div class="finding-desc">Over previous state-of-the-art approaches on equivalent brain tumor MRI classification tasks.</div>
+      </div>
+      <div class="finding-card" style="border-left:1px solid var(--b1)">
+        <div class="finding-num" style="color:var(--green)">−70%</div>
+        <div class="finding-title">Compute Time</div>
+        <div class="finding-desc">PCA reduction cuts inference computation by 70% with less than 5% variance sacrifice — essential for real-world deployment.</div>
+      </div>
+      <div class="finding-card" style="border-left:1px solid var(--b1)">
+        <div class="finding-num" style="color:var(--amber)">+8%</div>
+        <div class="finding-title">MCC Gain</div>
+        <div class="finding-desc">Data augmentation alone added 8 percentage points to Matthews Correlation Coefficient — critical for minority class detection.</div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div>
+      <div class="footer-brand">Neuro<em>Scan</em> AI</div>
+      <div class="footer-sub">IEEE SCEECS 2026 · DOI: 10.1109/SCEECS68810.2026.11429884</div>
+    </div>
+    <div class="footer-r">© 2026 · SRM IST & NIT Puducherry · Research Prototype</div>
+  </footer>
+</div>
+
+
+<!-- ════════════════════════════════════════
+     PAGE: ABOUT
+════════════════════════════════════════ -->
+<div class="page" id="page-about">
+
+  <div class="about-hero">
+    <div class="about-hero-tag">// THE STORY BEHIND NEUROSCAN</div>
+    <h1>RESEARCH<br>MEETS<br>PRODUCT</h1>
+    <p>A team of SRM IST students turned a published IEEE paper into a working AI tool that anyone can use — doctors, researchers, patients, and the curious.</p>
+  </div>
+
+  <div class="about-content">
+
+    <div class="mission-card">
+      <h2>OUR MISSION</h2>
+      <p>Brain tumors affect millions globally. Early detection dramatically improves patient outcomes. Yet most AI research on this topic stays locked in academic papers — inaccessible to the clinicians and patients who could benefit. NeuroScan AI closes that gap.</p>
+      <p>We took our IEEE-published research on brain tumor classification and built it into a tool anyone with an MRI image can use — no medical imaging software required, no technical knowledge needed. Just upload and analyze.</p>
+      <p>We are Computational Intelligence students at SRM Institute of Science and Technology, Kattankulathur. This project started as a research paper and became something we're genuinely proud of.</p>
+    </div>
+
+    <div class="tag" style="margin-bottom:20px">Technology Stack</div>
+    <div class="tech-stack">
+      <div class="tech-cell">
+        <span class="tech-emoji">🧠</span>
+        <div class="tech-name">INCEPTION V3</div>
+        <div class="tech-lbl">Deep CNN Embedder</div>
+      </div>
+      <div class="tech-cell">
+        <span class="tech-emoji">📊</span>
+        <div class="tech-name">ORANGE</div>
+        <div class="tech-lbl">Visual ML Pipeline</div>
+      </div>
+      <div class="tech-cell">
+        <span class="tech-emoji">🔬</span>
+        <div class="tech-name">PCA</div>
+        <div class="tech-lbl">Dimensionality Reduction</div>
+      </div>
+      <div class="tech-cell">
+        <span class="tech-emoji">⚡</span>
+        <div class="tech-name">CLAUDE AI</div>
+        <div class="tech-lbl">Vision Analysis Engine</div>
+      </div>
+    </div>
+
+    <div class="tag" style="margin-bottom:20px">Training Dataset</div>
+    <div class="dataset-row">
+      <div class="ds-cell">
+        <div class="ds-num">7,023</div>
+        <div class="ds-lbl">Kaggle Dataset</div>
+        <div class="ds-desc">4 clinical classes. Widely used benchmark for brain tumor classification research.</div>
+      </div>
+      <div class="ds-cell" style="border-left:1px solid var(--b1)">
+        <div class="ds-num">6,000</div>
+        <div class="ds-lbl">BRISC 2025</div>
+        <div class="ds-desc">T1 and T2-weighted MRI sequences enriching modality diversity.</div>
+      </div>
+      <div class="ds-cell" style="border-left:1px solid var(--b1)">
+        <div class="ds-num">3,064</div>
+        <div class="ds-lbl">FigShare</div>
+        <div class="ds-desc">Expert-annotated tumor locations with cross-center variability.</div>
+      </div>
+    </div>
+
+    <div class="disclaimer-card">
+      <h3>⚠ IMPORTANT DISCLAIMER</h3>
+      <p>NeuroScan AI is a <strong>research prototype</strong> built to demonstrate the findings of our published IEEE paper. It is NOT a certified medical device, NOT approved for clinical diagnosis, and must NOT be used as the sole basis for any medical decision.</p>
+      <p>This tool is intended for educational, research, and portfolio purposes. Always consult a qualified radiologist, neurologist, or specialist for brain tumor diagnosis, evaluation, and treatment planning. If you or someone you know is experiencing neurological symptoms, please seek immediate medical attention.</p>
+    </div>
+
+  </div>
+
+  <footer>
+    <div>
+      <div class="footer-brand">Neuro<em>Scan</em> AI</div>
+      <div class="footer-sub">IEEE SCEECS 2026 · SRM IST KATTANKULATHUR</div>
+    </div>
+    <div class="footer-r">
+      Monish M · Praveen R · T R Saravanan<br>
+      R Archith Shri Hari · Sibinath K · Sumanth R<br>
+      <span style="opacity:0.5">© 2026 · Research Prototype · Not for clinical use</span>
+    </div>
+  </footer>
+</div>
+
+
+<!-- ════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════ -->
+<script>
+
+/* ══ NEURAL CANVAS ══ */
+(function(){
+  const canvas = document.getElementById('neural-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, nodes=[], raf;
+  const N=70, CONN=130, CYAN='rgba(0,212,255,';
+
+  function resize(){
+    W=canvas.width=window.innerWidth;
+    H=canvas.height=window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  for(let i=0;i<N;i++){
+    nodes.push({
+      x:Math.random()*W, y:Math.random()*H,
+      vx:(Math.random()-0.5)*0.3, vy:(Math.random()-0.5)*0.3,
+      r:Math.random()*2+1,
+      phase:Math.random()*Math.PI*2,
+      speed:Math.random()*0.02+0.008,
+      bright:Math.random()>0.85
+    });
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    const t=Date.now()*0.001;
+
+    // Connections
+    for(let i=0;i<N;i++){
+      for(let j=i+1;j<N;j++){
+        const dx=nodes[i].x-nodes[j].x, dy=nodes[i].y-nodes[j].y;
+        const d=Math.sqrt(dx*dx+dy*dy);
+        if(d<CONN){
+          const a=(1-d/CONN)*0.15;
+          const pulse=Math.sin(t*1.5+nodes[i].phase)*0.5+0.5;
+          ctx.strokeStyle=CYAN+(a*pulse)+')';
+          ctx.lineWidth=0.6;
+          ctx.beginPath();
+          ctx.moveTo(nodes[i].x,nodes[i].y);
+          ctx.lineTo(nodes[j].x,nodes[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // Nodes
+    nodes.forEach(n=>{
+      n.phase+=n.speed;
+      const pulse=Math.sin(n.phase)*0.5+0.5;
+      const r=n.r*(1+pulse*0.4);
+      const a=n.bright?(0.6+pulse*0.4):(0.15+pulse*0.15);
+
+      if(n.bright){
+        ctx.shadowColor=`rgba(0,212,255,0.8)`;
+        ctx.shadowBlur=8;
+      }
+      ctx.fillStyle=CYAN+a+')';
+      ctx.beginPath();
+      ctx.arc(n.x,n.y,r,0,Math.PI*2);
+      ctx.fill();
+      ctx.shadowBlur=0;
+
+      // Move
+      n.x+=n.vx; n.y+=n.vy;
+      if(n.x<-10)n.x=W+10;
+      if(n.x>W+10)n.x=-10;
+      if(n.y<-10)n.y=H+10;
+      if(n.y>H+10)n.y=-10;
+    });
+
+    raf=requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+/* ══ ROUTER ══ */
+function go(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('on'));
+  document.getElementById('page-'+id).classList.add('on');
+  const nb=document.getElementById('nb-'+id);
+  if(nb) nb.classList.add('on');
+  window.scrollTo({top:0,behavior:'instant'});
+  if(id==='research') { renderTable(3); renderChart(); }
+}
+
+/* ══ NAV SCROLL ══ */
+window.addEventListener('scroll',()=>{
+  document.getElementById('nav').classList.toggle('scrolled',window.scrollY>20);
+});
+
+/* ══ SCROLL REVEAL ══ */
+const ro=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('shown'); });
+},{threshold:0.12});
+document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));
+
+/* ══ COUNT-UP STATS ══ */
+const so=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting && e.target.dataset.target){
+      const target=+e.target.dataset.target;
+      let cur=0; const dur=1600;
+      const start=performance.now();
+      function step(now){
+        const p=Math.min((now-start)/dur,1);
+        const ease=1-Math.pow(1-p,3);
+        cur=Math.round(target*ease);
+        e.target.textContent=cur>=1000?cur.toLocaleString():cur;
+        if(p<1) requestAnimationFrame(step);
+        else e.target.textContent=target>=1000?target.toLocaleString():target;
+      }
+      requestAnimationFrame(step);
+      so.unobserve(e.target);
+    }
+  });
+},{threshold:0.5});
+document.querySelectorAll('[data-target]').forEach(el=>so.observe(el));
+
+/* ══ SCANNER ══ */
+let fileB64=null, fileType='image/jpeg', scanResult=null;
+
+const uploadZ=document.getElementById('uploadZ');
+const fileInput=document.getElementById('fileInput');
+const previewCont=document.getElementById('previewCont');
+const mriViewer=document.getElementById('mriViewer');
+const mriImg=document.getElementById('mriImg');
+const btnAnalyze=document.getElementById('btnAnalyze');
+const btnReset=document.getElementById('btnReset');
+const scanErr=document.getElementById('scanErr');
+
+// Drag-drop
+uploadZ.addEventListener('dragover',e=>{e.preventDefault();uploadZ.classList.add('over');});
+uploadZ.addEventListener('dragleave',()=>uploadZ.classList.remove('over'));
+uploadZ.addEventListener('drop',e=>{
+  e.preventDefault(); uploadZ.classList.remove('over');
+  if(e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change',e=>{if(e.target.files[0])loadFile(e.target.files[0]);});
+
+function loadFile(file){
+  fileType=file.type||'image/jpeg';
+  const reader=new FileReader();
+  reader.onload=e=>{
+    fileB64=e.target.result.split(',')[1];
+    mriImg.src=e.target.result;
+    uploadZ.style.display='none';
+    previewCont.classList.add('vis');
+    document.getElementById('fName').textContent=file.name.length>30?file.name.slice(0,30)+'…':file.name;
+    document.getElementById('fSize').textContent=(file.size/1024).toFixed(1)+' KB';
+    document.getElementById('ovDate').textContent=new Date().toLocaleDateString('en-GB');
+    document.getElementById('ovSeq').textContent='SEQ: '+Math.floor(Math.random()*30+10);
+    btnAnalyze.style.display='block';
+    btnReset.style.display='block';
+    scanErr.classList.remove('vis');
+    scanResult=null;
+  };
+  reader.readAsDataURL(file);
+}
+
+function resetScan(){
+  fileB64=null; scanResult=null;
+  uploadZ.style.display='';
+  previewCont.classList.remove('vis');
+  mriViewer.classList.remove('scanning');
+  btnAnalyze.style.display='none';
+  btnReset.style.display='none';
+  fileInput.value='';
+  scanErr.classList.remove('vis');
+  document.getElementById('resEmpty').style.display='flex';
+  document.getElementById('resLoading').classList.remove('vis');
+  document.getElementById('resOut').classList.remove('vis');
+  clearLogLines();
+}
+
+/* Loading log animation */
+let logTimers=[];
+function animateLog(){
+  clearLogLines();
+  const lines=['ll1','ll2','ll3','ll4','ll5'];
+  lines.forEach((id,i)=>{
+    logTimers.push(setTimeout(()=>{
+      if(i>0){ document.getElementById(lines[i-1]).className='log-line done'; }
+      document.getElementById(id).className='log-line active';
+    },i*900));
+  });
+}
+function clearLogLines(){
+  logTimers.forEach(clearTimeout); logTimers=[];
+  ['ll1','ll2','ll3','ll4','ll5'].forEach(id=>document.getElementById(id).className='log-line');
+}
+
+/* API Call */
+async function runScan(){
+  if(!fileB64)return;
+  btnAnalyze.disabled=true;
+  mriViewer.classList.add('scanning');
+  document.getElementById('resEmpty').style.display='none';
+  document.getElementById('resOut').classList.remove('vis');
+  document.getElementById('resLoading').classList.add('vis');
+  scanErr.classList.remove('vis');
+  animateLog();
+
+  const prompt=`You are a specialized neuroradiology AI assistant. You have been trained on 16,000+ brain MRI images using InceptionV3 deep learning embeddings and neural network classification — based on the IEEE SCEECS 2026 paper "Deep Learning Based Brain Tumor Classification Using Orange Data Analytics."
+
+Analyze this brain MRI scan image carefully and classify it into exactly ONE of these four categories:
+- "Glioma" — tumor from glial cells, typically aggressive, high-grade malignancy possible
+- "Meningioma" — tumor from the meninges, usually benign, slow-growing
+- "Pituitary" — tumor on the pituitary gland, affects hormones and vision
+- "No Tumor" — healthy brain, no detectable tumor mass
+
+Respond ONLY with a valid JSON object. No markdown, no explanation outside the JSON:
+{
+  "classification": "Glioma" | "Meningioma" | "Pituitary" | "No Tumor",
+  "confidence": {
+    "No Tumor": <integer 0–100>,
+    "Glioma": <integer 0–100>,
+    "Meningioma": <integer 0–100>,
+    "Pituitary": <integer 0–100>
+  },
+  "risk": "Low" | "Medium" | "High",
+  "explanation": "<2-3 clear sentences: what you observe in the MRI, what the classification indicates clinically, and what the patient/physician should do next>"
+}
+
+Rules:
+- confidence values must be integers and sum to exactly 100
+- risk: "Low" for No Tumor, "Medium" for Meningioma or Pituitary, "High" for Glioma
+- If this is not a brain MRI, classify as "No Tumor" and explain in the explanation field
+- Use appropriately cautious clinical language`;
+
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:1000,
+        messages:[{
+          role:'user',
+          content:[
+            {type:'image',source:{type:'base64',media_type:fileType,data:fileB64}},
+            {type:'text',text:prompt}
+          ]
+        }]
+      })
+    });
+
+    const data=await resp.json();
+    if(!resp.ok) throw new Error(data.error?.message||'API error '+resp.status);
+
+    const raw=(data.content||[]).map(b=>b.text||'').join('').trim();
+    let result;
+    try{ result=JSON.parse(raw.replace(/```json|```/g,'').trim()); }
+    catch(e){ throw new Error('Could not parse response. Please try again.'); }
+
+    scanResult=result;
+    showResults(result);
+
+  } catch(err){
+    document.getElementById('resLoading').classList.remove('vis');
+    document.getElementById('resEmpty').style.display='flex';
+    mriViewer.classList.remove('scanning');
+    scanErr.textContent='⚠ '+( err.message||'Analysis failed. Please try again.');
+    scanErr.classList.add('vis');
+    clearLogLines();
+  } finally {
+    btnAnalyze.disabled=false;
+    mriViewer.classList.remove('scanning');
+  }
+}
+
+function showResults(r){
+  document.getElementById('resLoading').classList.remove('vis');
+  clearLogLines();
+
+  const cl=r.classification;
+  const key=cl.toLowerCase().replace(' ','-');
+
+  // Header
+  const hdr=document.getElementById('resHdr');
+  hdr.className='res-header '+key;
+  const icons={'Glioma':'🔴','Meningioma':'🟡','Pituitary':'🟣','No Tumor':'🟢'};
+  document.getElementById('resIcon').textContent=icons[cl]||'●';
+  document.getElementById('resType').textContent=cl.toUpperCase();
+
+  // Risk
+  const led=document.getElementById('riskLed');
+  led.className='risk-led '+r.risk.toLowerCase();
+  const riskMap={
+    'Low':'✓ LOW RISK — No significant tumor indicators detected in this scan',
+    'Medium':'⚠ MEDIUM RISK — Tumor present. Specialist consultation recommended',
+    'High':'⛔ HIGH RISK — Aggressive tumor indicators. Seek immediate specialist care'
+  };
+  document.getElementById('riskVal').textContent=riskMap[r.risk]||r.risk;
+
+  // Confidence bars (animate after 100ms)
+  const map=[
+    {key:'No Tumor',fill:'cf-nt',pct:'cp-nt'},
+    {key:'Glioma',fill:'cf-gl',pct:'cp-gl'},
+    {key:'Meningioma',fill:'cf-mn',pct:'cp-mn'},
+    {key:'Pituitary',fill:'cf-pt',pct:'cp-pt'}
+  ];
+  // Reset first
+  map.forEach(m=>{
+    document.getElementById(m.fill).style.width='0%';
+    document.getElementById(m.pct).textContent='0%';
+  });
+  setTimeout(()=>{
+    map.forEach(m=>{
+      const v=r.confidence[m.key]||0;
+      document.getElementById(m.fill).style.width=v+'%';
+      document.getElementById(m.pct).textContent=v+'%';
+    });
+  },150);
+
+  // Explanation
+  document.getElementById('explainTxt').textContent=r.explanation;
+
+  document.getElementById('resOut').classList.add('vis');
+}
+
+/* ══ PDF REPORT ══ */
+function downloadPDF(){
+  if(!scanResult)return;
+  const r=scanResult;
+  const now=new Date().toLocaleString('en-IN',{dateStyle:'full',timeStyle:'short'});
+  const riskColor={Low:'#0a9e68',Medium:'#d4830a',High:'#c92840'};
+  const borderColor={
+    'No Tumor':'#0a9e68','Glioma':'#c92840','Meningioma':'#d4830a','Pituitary':'#7c3aed'
+  };
+
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>NeuroScan AI Diagnostic Report</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'DM Sans',sans-serif;color:#1a2a3a;background:#fff;padding:48px;max-width:760px;margin:0 auto}
+  .hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #e0eaf0;padding-bottom:24px;margin-bottom:28px}
+  .brand{font-size:28px;font-weight:700;color:#0a1828;letter-spacing:-0.5px}
+  .brand span{color:#0099bb}
+  .brand-sub{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:1.5px;color:#6a9cb8;margin-top:4px;text-transform:uppercase}
+  .date-block{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6a9cb8;text-align:right;line-height:1.8}
+  .result-box{border-left:4px solid ${borderColor[r.classification]||'#0099bb'};padding:22px 24px;background:#f7fbfc;margin-bottom:22px;border-radius:2px}
+  .res-type{font-size:36px;font-weight:700;color:#0a1828;letter-spacing:-0.5px}
+  .res-risk{font-family:'IBM Plex Mono',monospace;font-size:11px;color:${riskColor[r.risk]||'#6a9cb8'};margin-top:6px;letter-spacing:1px;text-transform:uppercase}
+  .section-head{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#6a9cb8;margin-bottom:14px;margin-top:24px}
+  .conf-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+  .conf-lbl{font-family:'IBM Plex Mono',monospace;font-size:11px;width:100px;flex-shrink:0;color:#334}
+  .conf-track{flex:1;height:6px;background:#e0eaf0;border-radius:3px;overflow:hidden}
+  .conf-fill{height:100%;border-radius:3px}
+  .conf-pct{font-family:'IBM Plex Mono',monospace;font-size:11px;width:36px;text-align:right;flex-shrink:0;color:#334}
+  .explain{background:#f7fbfc;border:1px solid #dce8f0;padding:20px 22px;font-size:13px;line-height:1.85;color:#2a3a4a;border-radius:2px}
+  .footer{border-top:1px solid #e0eaf0;padding-top:20px;margin-top:32px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#8a9cb8;line-height:2;letter-spacing:0.5px}
+  .disclaimer{background:#fff9ed;border:1px solid #ffeab0;padding:16px 18px;font-size:12px;color:#7a5500;line-height:1.75;margin-top:20px;border-radius:2px}
+  .meta-row{display:flex;gap:32px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#6a9cb8;margin-bottom:24px;flex-wrap:wrap}
+  .meta-item::before{content:'●  ';color:#00aad4;font-size:8px}
+</style></head><body>
+<div class="hdr">
+  <div>
+    <div class="brand">Neuro<span>Scan</span> AI</div>
+    <div class="brand-sub">Brain Tumor Classification System</div>
+  </div>
+  <div class="date-block">
+    <div>DIAGNOSTIC REPORT</div>
+    <div>${now}</div>
+    <div>REF: NSA-${Math.floor(Math.random()*90000+10000)}</div>
+  </div>
+</div>
+<div class="meta-row">
+  <div class="meta-item">IEEE SCEECS 2026</div>
+  <div class="meta-item">DOI: 10.1109/SCEECS68810.2026.11429884</div>
+  <div class="meta-item">Model: Neural Network (AUC 0.999)</div>
+  <div class="meta-item">Research Prototype</div>
+</div>
+<div class="result-box">
+  <div class="res-type">${r.classification.toUpperCase()}</div>
+  <div class="res-risk">Risk Level: ${r.risk} &nbsp;·&nbsp; Classification Confidence: ${r.confidence[r.classification]}%</div>
+</div>
+<div class="section-head">Classification Confidence By Category</div>
+${Object.entries(r.confidence).map(([k,v])=>`
+<div class="conf-row">
+  <div class="conf-lbl">${k}</div>
+  <div class="conf-track"><div class="conf-fill" style="width:${v}%;background:${k==='No Tumor'?'#0a9e68':k==='Glioma'?'#c92840':k==='Meningioma'?'#d4830a':'#7c3aed'}"></div></div>
+  <div class="conf-pct">${v}%</div>
+</div>`).join('')}
+<div class="section-head">Clinical Observations</div>
+<div class="explain">${r.explanation}</div>
+<div class="disclaimer">
+  <strong>⚠ IMPORTANT DISCLAIMER:</strong> This report was generated by NeuroScan AI — a research prototype based on the paper "Deep Learning Based Brain Tumor Classification Using Orange Data Analytics" (IEEE SCEECS 2026). This is NOT a certified medical device and must NOT be used as the sole basis for any clinical decision. Always consult a qualified radiologist, neurologist, or medical specialist for diagnosis, evaluation, and treatment.
+</div>
+<div class="footer">
+  NeuroScan AI · IEEE SCEECS 2026 · SRM Institute of Science and Technology, Kattankulathur<br>
+  Authors: Praveen R, Monish M, T R Saravanan, R Archith Shri Hari, Sibinath K, Sumanth R<br>
+  Generated by AI — for research and educational use only
+</div>
+</body></html>`;
+
+  const w=window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(()=>w.print(),800);
+}
+
+/* ══ RESEARCH TABLE ══ */
+const tableData={
+  3:[
+    ['Neural Network','0.991','0.934','0.934','0.934','0.934','0.931',true],
+    ['SVM',          '0.983','0.898','0.898','0.898','0.898','0.894',false],
+    ['Random Forest','0.985','0.905','0.905','0.905','0.905','0.904',false],
+    ['Log. Regression','0.975','0.876','0.876','0.876','0.876','0.838',false],
+    ['Naive Bayes',  '0.919','0.757','0.757','0.757','0.757','0.704',false],
+    ['Decision Tree','0.917','0.757','0.757','0.757','0.757','0.704',false],
+  ],
+  5:[
+    ['Neural Network','0.997','0.983','0.983','0.983','0.983','0.981',true],
+    ['SVM',          '0.995','0.967','0.967','0.967','0.967','0.963',false],
+    ['Random Forest','0.987','0.958','0.958','0.958','0.958','0.953',false],
+    ['Log. Regression','0.915','0.757','0.757','0.757','0.757','0.704',false],
+    ['Naive Bayes',  '0.917','0.757','0.757','0.757','0.757','0.704',false],
+    ['Decision Tree','0.917','0.757','0.757','0.757','0.757','0.704',false],
+  ],
+  10:[
+    ['Neural Network','0.999','0.990','0.990','0.990','0.990','0.989',true],
+    ['SVM',          '0.997','0.983','0.983','0.983','0.983','0.981',false],
+    ['Random Forest','0.989','0.962','0.962','0.962','0.962','0.958',false],
+    ['Log. Regression','0.915','0.757','0.757','0.757','0.757','0.704',false],
+    ['Naive Bayes',  '0.917','0.757','0.757','0.757','0.757','0.704',false],
+    ['Decision Tree','0.917','0.757','0.757','0.757','0.757','0.704',false],
+  ]
+};
+
+function renderTable(fold){
+  const tb=document.getElementById('tBody');
+  if(!tb)return;
+  tb.innerHTML=tableData[fold].map(r=>`<tr>
+    <td class="td-model">${r[0]}${r[7]?' <span class="td-star">★</span>':''}</td>
+    <td class="${r[7]?'td-best':''}">${r[1]}</td>
+    <td class="${r[7]?'td-best':''}">${r[2]}</td>
+    <td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td>
+    <td class="${r[7]?'td-best':''}">${r[6]}</td>
+  </tr>`).join('');
+}
+
+function switchFold(f,btn){
+  document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('on'));
+  btn.classList.add('on');
+  renderTable(f);
+}
+
+/* ══ ACCURACY CHART ══ */
+function renderChart(){
+  const models=[
+    {name:'Neural Net', acc:99.0, color:'var(--cyan)'},
+    {name:'SVM',        acc:98.3, color:'rgba(0,212,255,0.6)'},
+    {name:'Rand. Forest',acc:96.2,color:'rgba(0,212,255,0.45)'},
+    {name:'Log. Reg.',  acc:75.7, color:'rgba(0,212,255,0.25)'},
+    {name:'Naive Bayes',acc:75.7, color:'rgba(0,212,255,0.2)'},
+    {name:'Dec. Tree',  acc:75.7, color:'rgba(0,212,255,0.15)'},
+  ];
+  const bars=document.getElementById('chartBars');
+  const labels=document.getElementById('chartLabels');
+  if(!bars||!labels)return;
+
+  bars.innerHTML=models.map(m=>`
+    <div class="chart-bar-col">
+      <div class="chart-bar" data-pct="${m.acc}%"
+        style="height:0%;background:${m.color};border-top:2px solid ${m.color === 'var(--cyan)' ? 'var(--cyan)' : m.color}">
+      </div>
+    </div>`).join('');
+
+  labels.innerHTML=models.map(m=>`<div class="chart-lbl" style="flex:1">${m.name}</div>`).join('');
+
+  setTimeout(()=>{
+    document.querySelectorAll('.chart-bar').forEach((bar,i)=>{
+      const pct=models[i].acc;
+      bar.style.transition=`height 1.2s ${0.1*i}s cubic-bezier(0.16,1,0.3,1)`;
+      bar.style.height=pct+'%';
+    });
+  },200);
+}
+
+/* Init */
+renderTable(3);
+
+</script>
+</body>
+</html>

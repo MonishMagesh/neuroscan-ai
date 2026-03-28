@@ -115,8 +115,8 @@ Classification Result + Confidence Scores
 | Name | Institution | Role |
 |------|-------------|------|
 | Praveen R | NIT Puducherry | Lead Author |
-| Monish M | SRM IST, Kattankulathur | Co-Author |
 | T R Saravanan | SRM IST, Kattankulathur | Co-Author |
+| Monish M | SRM IST, Kattankulathur | Co-Author |
 | R Archith Shri Hari | SRM IST, Kattankulathur | Co-Author |
 | Sibinath K | SRM IST, Kattankulathur | Co-Author |
 | Sumanth R | SRM IST, Kattankulathur | Co-Author |

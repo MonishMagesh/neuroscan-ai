@@ -1228,6 +1228,34 @@ footer {
         <div class="glow-line"></div>
         <div class="panel-hdr">MRI Image Input</div>
 
+        <!-- API Key input -->
+        <div style="margin-bottom:20px">
+          <div style="font-family:var(--font-m);font-size:9px;letter-spacing:0.22em;color:var(--t3);text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:8px">
+            <span style="color:var(--cyan)">●</span> Anthropic API Key <span style="color:rgba(255,181,32,0.8)">(required)</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input
+              id="apiKeyInput"
+              type="password"
+              placeholder="sk-ant-api03-..."
+              style="flex:1;background:var(--bg3);border:1px solid var(--b2);color:var(--t2);
+                     font-family:var(--font-m);font-size:11px;padding:10px 14px;
+                     outline:none;transition:border-color 0.2s;letter-spacing:0.05em;"
+              onfocus="this.style.borderColor='var(--cyan)'"
+              onblur="this.style.borderColor='var(--b2)'"
+            >
+            <button onclick="toggleKey()" id="keyToggle"
+              style="background:transparent;border:1px solid var(--b1);color:var(--t3);
+                     font-family:var(--font-m);font-size:9px;padding:10px 12px;cursor:pointer;
+                     letter-spacing:0.1em;transition:all 0.2s;white-space:nowrap;flex-shrink:0"
+              onmouseover="this.style.borderColor='var(--t3)'"
+              onmouseout="this.style.borderColor='var(--b1)'">SHOW</button>
+          </div>
+          <div style="font-family:var(--font-m);font-size:9px;color:var(--t4);margin-top:6px;line-height:1.7">
+            Get your key at <span style="color:var(--cyan)">console.anthropic.com</span> · Stored in memory only · Never saved or sent anywhere else
+          </div>
+        </div>
+
         <!-- Upload zone -->
         <div class="upload-z" id="uploadZ">
           <input type="file" id="fileInput" accept="image/*">
@@ -1785,6 +1813,14 @@ const so=new IntersectionObserver(entries=>{
 },{threshold:0.5});
 document.querySelectorAll('[data-target]').forEach(el=>so.observe(el));
 
+/* ══ API KEY TOGGLE ══ */
+function toggleKey(){
+  const inp=document.getElementById('apiKeyInput');
+  const btn=document.getElementById('keyToggle');
+  if(inp.type==='password'){ inp.type='text'; btn.textContent='HIDE'; }
+  else { inp.type='password'; btn.textContent='SHOW'; }
+}
+
 /* ══ SCANNER ══ */
 let fileB64=null, fileType='image/jpeg', scanResult=null;
 
@@ -1896,10 +1932,27 @@ Rules:
 - If this is not a brain MRI, classify as "No Tumor" and explain in the explanation field
 - Use appropriately cautious clinical language`;
 
+  const apiKey=document.getElementById('apiKeyInput')?.value?.trim();
+  if(!apiKey){
+    document.getElementById('resLoading').classList.remove('vis');
+    document.getElementById('resEmpty').style.display='flex';
+    mriViewer.classList.remove('scanning');
+    btnAnalyze.disabled=false;
+    scanErr.textContent='⚠ Please enter your Anthropic API key above before analyzing.';
+    scanErr.classList.add('vis');
+    clearLogLines();
+    return;
+  }
+
   try{
     const resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
       body:JSON.stringify({
         model:'claude-sonnet-4-6',
         max_tokens:1000,

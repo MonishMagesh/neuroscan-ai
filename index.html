@@ -1231,13 +1231,14 @@ footer {
         <!-- API Key input -->
         <div style="margin-bottom:20px">
           <div style="font-family:var(--font-m);font-size:9px;letter-spacing:0.22em;color:var(--t3);text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:8px">
-            <span style="color:var(--cyan)">●</span> Anthropic API Key <span style="color:rgba(255,181,32,0.8)">(required)</span>
+            <span style="color:var(--green)">●</span> Google Gemini API Key
+            <span style="color:var(--green);border:1px solid rgba(0,255,157,0.3);padding:2px 8px;font-size:8px">FREE</span>
           </div>
           <div style="display:flex;gap:8px;align-items:center">
             <input
               id="apiKeyInput"
               type="password"
-              placeholder="sk-ant-api03-..."
+              placeholder="AIzaSy..."
               style="flex:1;background:var(--bg3);border:1px solid var(--b2);color:var(--t2);
                      font-family:var(--font-m);font-size:11px;padding:10px 14px;
                      outline:none;transition:border-color 0.2s;letter-spacing:0.05em;"
@@ -1252,7 +1253,7 @@ footer {
               onmouseout="this.style.borderColor='var(--b1)'">SHOW</button>
           </div>
           <div style="font-family:var(--font-m);font-size:9px;color:var(--t4);margin-top:6px;line-height:1.7">
-            Get your key at <span style="color:var(--cyan)">console.anthropic.com</span> · Stored in memory only · Never saved or sent anywhere else
+            Free key at <span style="color:var(--green)">aistudio.google.com</span> · Click Get API Key · No credit card needed · Stored in memory only
           </div>
         </div>
 
@@ -1938,38 +1939,34 @@ Rules:
     document.getElementById('resEmpty').style.display='flex';
     mriViewer.classList.remove('scanning');
     btnAnalyze.disabled=false;
-    scanErr.textContent='⚠ Please enter your Anthropic API key above before analyzing.';
+    scanErr.textContent='⚠ Please enter your Google Gemini API key above before analyzing.';
     scanErr.classList.add('vis');
     clearLogLines();
     return;
   }
 
   try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body:JSON.stringify({
-        model:'claude-sonnet-4-6',
-        max_tokens:1000,
-        messages:[{
-          role:'user',
-          content:[
-            {type:'image',source:{type:'base64',media_type:fileType,data:fileB64}},
-            {type:'text',text:prompt}
-          ]
-        }]
-      })
-    });
+    const resp=await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          contents:[{
+            parts:[
+              { inline_data:{ mime_type: fileType, data: fileB64 } },
+              { text: prompt }
+            ]
+          }],
+          generationConfig:{ temperature:0.2, maxOutputTokens:1000 }
+        })
+      }
+    );
 
     const data=await resp.json();
     if(!resp.ok) throw new Error(data.error?.message||'API error '+resp.status);
 
-    const raw=(data.content||[]).map(b=>b.text||'').join('').trim();
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     let result;
     try{ result=JSON.parse(raw.replace(/```json|```/g,'').trim()); }
     catch(e){ throw new Error('Could not parse response. Please try again.'); }

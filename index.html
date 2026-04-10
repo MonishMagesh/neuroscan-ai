@@ -1946,57 +1946,63 @@ Rules:
   }
 
   // Try vision models in order until one works
-  const VISION_MODELS = [
+  // Models tried in order - first working one is used
+  const MODELS = [
     'qwen/qwen2.5-vl-72b-instruct:free',
     'qwen/qwen2.5-vl-32b-instruct:free',
-    'google/gemma-4-31b-it:free',
-    'moonshotai/kimi-vl-a3b-thinking:free',
-    'openrouter/auto'
+    'google/gemma-3-27b-it:free',
+    'mistralai/mistral-small-3.1-24b-instruct:free',
+    'meta-llama/llama-4-scout:free'
   ];
 
-  async function tryModel(model) {
-    return fetch('https://openrouter.ai/api/v1/chat/completions',{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'Authorization':`Bearer ${apiKey}`,
+  async function callModel(model) {
+    const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + apiKey,
         'HTTP-Referer': window.location.href,
-        'X-Title':'NeuroScan AI'
+        'X-Title': 'NeuroScan AI'
       },
-      body:JSON.stringify({
+      body: JSON.stringify({
         model: model,
-        max_tokens:1000,
-        messages:[{
-          role:'user',
-          content:[
-            {type:'image_url', image_url:{url:`data:${fileType};base64,${fileB64}`}},
-            {type:'text', text:prompt}
+        max_tokens: 800,
+        temperature: 0.1,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: 'data:' + fileType + ';base64,' + fileB64 } },
+            { type: 'text', text: prompt }
           ]
         }]
       })
     });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error?.message || 'HTTP ' + resp.status);
+    const txt = data.choices?.[0]?.message?.content || '';
+    if (!txt) throw new Error('Empty response');
+    return txt;
   }
 
   try{
-    let resp, data, lastErr;
-
-    for(const model of VISION_MODELS){
-      resp = await tryModel(model);
-      data = await resp.json();
-      if(resp.ok && data.choices?.[0]?.message?.content){
-        break; // success
-      }
-      lastErr = data.error?.message || 'Model unavailable';
+    let raw = '', lastErr = 'All models unavailable';
+    for (const model of MODELS) {
+      try { raw = await callModel(model); if (raw) break; }
+      catch(e) { lastErr = e.message; }
     }
-
-    if(!resp.ok || !data.choices?.[0]?.message?.content){
-      throw new Error(lastErr || 'All vision models unavailable. Please try again later.');
-    }
+    if (!raw) throw new Error(lastErr);
 
     const raw = data.choices?.[0]?.message?.content || '';
+    // Robust JSON extraction
     let result;
-    try{ result=JSON.parse(raw.replace(/```json|```/g,'').trim()); }
-    catch(e){ throw new Error('Could not parse response. Please try again.'); }
+    try{
+      const clean = raw.replace(/```json|```/gi, '').trim();
+      const match = clean.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error('No JSON in response');
+      result = JSON.parse(match[0]);
+      if (!result.classification || !result.confidence || !result.risk || !result.explanation)
+        throw new Error('Incomplete response');
+    } catch(e){ throw new Error('Could not parse AI response. Please try again.'); }
 
     scanResult=result;
     showResults(result);

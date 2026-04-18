@@ -1758,7 +1758,30 @@ var VISION_MODELS = [
   'qwen/qwen2.5-vl-32b-instruct:free'
 ];
 
-var PROMPT = 'You are a neuroradiology AI assistant trained on 16,000+ brain MRI images using InceptionV3 deep learning embeddings.\n\nAnalyze this brain MRI scan and classify it into exactly ONE category:\n- "Glioma"\n- "Meningioma"\n- "Pituitary"\n- "No Tumor"\n\nReply ONLY with valid JSON, no other text, no markdown fences:\n{"classification":"Glioma","confidence":{"No Tumor":5,"Glioma":85,"Meningioma":6,"Pituitary":4},"risk":"High","explanation":"Your 2-3 sentence clinical observation here."}\n\nRules: confidence values are integers summing to exactly 100. risk = Low for No Tumor, Medium for Meningioma/Pituitary, High for Glioma. If not a brain MRI, use No Tumor and explain.';
+var PROMPT = [
+  'You are an expert neuroradiology AI. Carefully examine this brain MRI scan.',
+  '',
+  'Your task: classify the scan into exactly ONE of these four categories based on what you ACTUALLY SEE:',
+  '',
+  'GLIOMA — Look for: irregular infiltrative mass, heterogeneous signal intensity, surrounding edema (T2 hyperintensity), indistinct margins, possible necrosis, no clear dural attachment. Usually in cerebral hemispheres, thalamus, or brainstem.',
+  '',
+  'MENINGIOMA — Look for: well-defined rounded or lobulated extraaxial mass, homogeneous enhancement, dural attachment or "dural tail" sign, possible hyperostosis of adjacent bone, displacement of brain tissue, often at skull base, falx, or convexity.',
+  '',
+  'PITUITARY — Look for: mass in or near the sella turcica (pituitary fossa) at skull base, may compress optic chiasm, can extend into suprasellar region, well-defined borders, homogeneous or with cystic components.',
+  '',
+  'NO TUMOR — Look for: normal brain anatomy with no mass lesion, symmetric structures, no abnormal signal, no displacement of midline, no surrounding edema, healthy-appearing white and gray matter.',
+  '',
+  'IMPORTANT: Base your answer ONLY on visual features actually present in THIS image. Do not default to any category.',
+  '',
+  'Respond ONLY with a raw JSON object — no markdown, no code fences, no explanation outside the JSON:',
+  '{"classification":"<one of: Glioma|Meningioma|Pituitary|No Tumor>","confidence":{"No Tumor":<int>,"Glioma":<int>,"Meningioma":<int>,"Pituitary":<int>},"risk":"<Low|Medium|High>","explanation":"<2-3 sentences describing what you actually observe in the MRI and why you classified it this way>"}',
+  '',
+  'Rules:',
+  '- confidence values must be INTEGERS summing to exactly 100',
+  '- Assign the highest confidence to the category that best matches visual features',
+  '- risk: Low = No Tumor, Medium = Meningioma or Pituitary, High = Glioma',
+  '- If this is not a brain MRI, classify as No Tumor and explain in the explanation field'
+].join('\n');
 
 async function tryOneModel(apiKey, model) {
   var response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
